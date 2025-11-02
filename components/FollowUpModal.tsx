@@ -36,9 +36,14 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
   const [filter, setFilter] = useState<FilterType>('pending');
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
+  const canBulkAction = useMemo(() => ['doctor', 'admin'].includes(currentUser.role), [currentUser.role]);
 
   useEffect(() => {
     setFollowups(initialFollowups);
+    setSelectedIds(new Set());
   }, [initialFollowups]);
 
   const handleMarkDone = useCallback(async (fup: Followup) => {
@@ -69,8 +74,6 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
         nextFollowupToast = `Next follow-up scheduled for ${nextDate.toLocaleDateString()}.`;
       }
 
-      // FIX: Explicitly cast status to the 'FollowupStatus' literal type.
-      // TypeScript was inferring 'done' as a generic string, which caused a type mismatch.
       const updatedList = followups.map(item => 
         item.id === fup.id ? { ...item, status: 'done' as const } : item
       );
@@ -78,7 +81,7 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
       onUpdate(updatedList);
 
       if (nextFollowupToast) {
-        alert(nextFollowupToast); // Replace with a proper toast notification
+        alert(nextFollowupToast);
       }
     } catch (err) {
       console.error(err);
@@ -97,7 +100,7 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
 
         await updateFollowupApi({ id: fup.id, scheduled_date: isoDate, status: 'snoozed' });
 
-        const updatedList = followups.filter(x => x.id !== fup.id); // Remove from current date's list
+        const updatedList = followups.filter(x => x.id !== fup.id);
         setFollowups(updatedList);
         onUpdate(updatedList);
         alert(`Follow-up snoozed to ${isoDate}.`);
@@ -116,6 +119,65 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
   const handleShowHistory = useCallback((followup: Followup) => {
     onShowPatientHistory(followup.patient);
   }, [onShowPatientHistory]);
+
+  const handleSelectToggle = (id: number) => {
+    setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        return newSet;
+    });
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.checked) {
+          setSelectedIds(new Set(filteredFollowups.map(f => f.id)));
+      } else {
+          setSelectedIds(new Set());
+      }
+  };
+
+  const handleBulkMarkDone = async () => {
+      setIsBulkProcessing(true);
+      const promises = Array.from(selectedIds).map(id => updateFollowupApi({ id, status: 'done' }));
+      try {
+          await Promise.all(promises);
+          const updatedList = followups.map(f => selectedIds.has(f.id) ? { ...f, status: 'done' as const } : f);
+          setFollowups(updatedList);
+          onUpdate(updatedList);
+          setSelectedIds(new Set());
+      } catch (e) {
+          alert('Some follow-ups could not be marked done.');
+      } finally {
+          setIsBulkProcessing(false);
+      }
+  };
+
+  const handleBulkSnooze = async (days: number) => {
+      setIsBulkProcessing(true);
+      const baseSnoozeDate = new Date(date); // Use the modal's date, not today
+      baseSnoozeDate.setDate(baseSnoozeDate.getDate() + days);
+      const isoDate = baseSnoozeDate.toISOString().split('T')[0];
+
+      const promises = Array.from(selectedIds).map(id => {
+          return updateFollowupApi({ id, scheduled_date: isoDate, status: 'snoozed' });
+      });
+      try {
+          await Promise.all(promises);
+          const updatedList = followups.filter(f => !selectedIds.has(f.id));
+          setFollowups(updatedList);
+          onUpdate(updatedList);
+          setSelectedIds(new Set());
+          alert(`${selectedIds.size} follow-ups snoozed to ${isoDate}.`);
+      } catch (e) {
+          alert('Some follow-ups could not be snoozed.');
+      } finally {
+          setIsBulkProcessing(false);
+      }
+  };
 
   const filteredFollowups = useMemo(() => {
     let sorted = [...followups].sort((a, b) => {
@@ -175,6 +237,12 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
             </div>
           ) : (
             <div className="space-y-3">
+              {canBulkAction && filteredFollowups.length > 0 && (
+                  <div className="flex items-center gap-2 p-2 border-b">
+                      <input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size === filteredFollowups.length && filteredFollowups.length > 0} />
+                      <label>Select All</label>
+                  </div>
+              )}
               {filteredFollowups.map(f => (
                 <FollowUpItem 
                     key={f.id} 
@@ -184,14 +252,29 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
                     isProcessing={processingId === f.id} 
                     onCreateAppointment={handleCreateAppointment}
                     onShowPatientHistory={handleShowHistory}
+                    isSelected={selectedIds.has(f.id)}
+                    onSelectToggle={handleSelectToggle}
+                    canBulkAction={canBulkAction}
                 />
               ))}
             </div>
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-200 flex justify-end gap-2">
-            <button className="px-4 py-2 border rounded-md text-slate-700 bg-white hover:bg-slate-50" disabled>Bulk Actions</button>
+        <div className="p-4 border-t border-slate-200 flex justify-between items-center gap-2">
+            {selectedIds.size > 0 && canBulkAction ? (
+                <div className="flex items-center gap-2">
+                    <span className="font-semibold">{selectedIds.size} selected</span>
+                    <button onClick={handleBulkMarkDone} disabled={isBulkProcessing} className="px-3 py-1.5 bg-green-500 text-white rounded-md text-sm disabled:bg-green-300">Mark Done</button>
+                    <select onChange={e => handleBulkSnooze(Number(e.target.value))} disabled={isBulkProcessing} className="px-3 py-1.5 border rounded-md text-sm disabled:opacity-50">
+                        <option>Snooze...</option>
+                        <option value="1">+1 Day</option>
+                        <option value="3">+3 Days</option>
+                        <option value="7">+7 Days</option>
+                    </select>
+                    {isBulkProcessing && <SpinnerIcon />}
+                </div>
+            ) : <div></div>}
             <button className="px-4 py-2 bg-slate-700 text-white rounded-md hover:bg-slate-800" onClick={onClose}>Close</button>
         </div>
       </div>

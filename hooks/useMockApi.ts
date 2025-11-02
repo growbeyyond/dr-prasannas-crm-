@@ -1,27 +1,33 @@
 import { useState, useCallback } from 'react';
-import { User, Branch, Patient, Followup, Service, Appointment, HistoryItem, Vitals, Invoice, InvoiceStatus, PrescriptionItem } from '../types';
+import { User, Branch, Patient, Followup, Service, Appointment, HistoryItem, Vitals, Invoice, PrescriptionItem, DashboardStats, ClinicalNoteTemplate, PatientDocument, CalendarBlocker } from '../types';
 
 // --- MOCK DATABASE ---
 
-const branches: Branch[] = [
+let branches: Branch[] = [
   { id: 1, name: 'West Clinic' },
   { id: 2, name: 'East Clinic' },
 ];
 
-const users: User[] = [
-  { id: 1, name: 'Dr. Prasanna', role: 'doctor' },
-  { id: 2, name: 'Anjali (Reception)', role: 'receptionist', branch_id: 1 },
-  { id: 3, name: 'Rohan (Reception)', role: 'receptionist', branch_id: 2 },
+let users: User[] = [
+  { id: 1, name: 'Dr. Prasanna', email: 'doctor@crm.com', passwordHash: 'password', role: 'doctor', is_active: true },
+  { id: 2, name: 'Anjali (Reception)', email: 'anjali@crm.com', passwordHash: 'password', role: 'receptionist', branch_id: 1, is_active: true },
+  { id: 3, name: 'Rohan (Reception)', email: 'rohan@crm.com', passwordHash: 'password', role: 'receptionist', branch_id: 2, is_active: true },
+  { id: 4, name: 'Admin User', email: 'admin@crm.com', passwordHash: 'password', role: 'admin', is_active: true },
+];
+
+let mockDocuments: PatientDocument[] = [
+    { id: 1, patient_id: 45, name: 'Blood Report - May 2024.pdf', url: '#', uploaded_at: '2024-05-15T10:00:00Z' },
+    { id: 2, patient_id: 45, name: 'X-Ray Scan - Jan 2024.jpg', url: '#', uploaded_at: '2024-01-20T14:30:00Z' },
 ];
 
 let mockPatients: Patient[] = [
-  { id: 45, name: 'Sowmya', phone: '9876543210', dob: '1993-05-12', gender: 'F' },
+  { id: 45, name: 'Sowmya', phone: '9876543210', dob: '1993-05-12', gender: 'F', documents: mockDocuments.filter(d => d.patient_id === 45) },
   { id: 46, name: 'Rajesh Kumar', phone: '8765432109', dob: '1985-11-20', gender: 'M' },
   { id: 47, name: 'Priya Sharma', phone: '7654321098', dob: '2001-02-10', gender: 'F' },
   { id: 48, name: 'Amit Singh', phone: '6543210987', dob: '1978-08-30', gender: 'M' },
 ];
 
-const services: Service[] = [
+let services: Service[] = [
     { id: 1, name: 'Consultation', duration_minutes: 30, price: 500 },
     { id: 2, name: 'Routine Check-up', duration_minutes: 20, price: 300 },
     { id: 3, name: 'Extended Consultation', duration_minutes: 60, price: 900 },
@@ -36,6 +42,15 @@ let mockInvoices: Invoice[] = [
         status: 'paid', 
         patient_name: 'Sowmya',
         invoice_date: new Date(new Date().setDate(new Date().getDate() - 20)).toISOString().split('T')[0]
+    },
+    { 
+        id: 2, 
+        appointment_id: 1, 
+        service_name: 'Consultation', 
+        amount: 500, 
+        status: 'paid', 
+        patient_name: 'Sowmya',
+        invoice_date: new Date().toISOString().split('T')[0]
     }
 ];
 
@@ -53,10 +68,10 @@ const enrichAppointments = (appointments: Omit<Appointment, 'patient' | 'service
 };
 
 let mockAppointmentsData: Omit<Appointment, 'patient' | 'service_name'>[] = [
-    { id: 1, branch_id: 1, doctor_id: 1, patient_id: 45, service_id: 1, start_time: new Date(new Date().setHours(10, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(10, 30, 0, 0)).toISOString(), status: 'confirmed' },
-    { id: 2, branch_id: 1, doctor_id: 1, patient_id: 46, service_id: 2, start_time: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(11, 20, 0, 0)).toISOString(), status: 'confirmed' },
-    { id: 3, branch_id: 2, doctor_id: 1, patient_id: 47, service_id: 1, start_time: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(14, 30, 0, 0)).toISOString(), status: 'confirmed' },
-    { id: 4, branch_id: 1, doctor_id: 1, patient_id: 45, service_id: 2, start_time: new Date(new Date().setDate(new Date().getDate() - 20)).toISOString(), end_time: new Date(new Date(new Date().setDate(new Date().getDate() - 20)).getTime() + 20 * 60000).toISOString(), status: 'completed', notes: 'Patient responded well to the treatment. Recommended a follow-up in a month.', vitals: { bp: '122/81', temp: 36.8, weight: 72 }, invoice_id: 1 }
+    { id: 1, branch_id: 1, doctor_id: 1, patient_id: 45, service_id: 1, start_time: new Date(new Date().setHours(10, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(10, 30, 0, 0)).toISOString(), status: 'completed', invoice_id: 2, reminder_sent: true },
+    { id: 2, branch_id: 1, doctor_id: 1, patient_id: 46, service_id: 2, start_time: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(11, 20, 0, 0)).toISOString(), status: 'confirmed', reminder_sent: false },
+    { id: 3, branch_id: 2, doctor_id: 1, patient_id: 47, service_id: 1, start_time: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(14, 30, 0, 0)).toISOString(), status: 'confirmed', reminder_sent: false },
+    { id: 4, branch_id: 1, doctor_id: 1, patient_id: 45, service_id: 2, start_time: new Date(new Date().setDate(new Date().getDate() - 20)).toISOString(), end_time: new Date(new Date(new Date().setDate(new Date().getDate() - 20)).getTime() + 20 * 60000).toISOString(), status: 'completed', notes: 'Patient responded well to the treatment. Recommended a follow-up in a month.', vitals: { bp: '122/81', temp: 36.8, weight: 72 }, invoice_id: 1, reminder_sent: true }
 ];
 
 const generateFollowups = (): Followup[] => {
@@ -71,14 +86,36 @@ const generateFollowups = (): Followup[] => {
   return followups;
 };
 
+let mockNoteTemplates: ClinicalNoteTemplate[] = [
+    { id: 1, name: 'Viral Fever', content: 'Patient presented with fever, cough, and body ache. Advised rest and paracetamol.', doctor_id: 1 },
+    { id: 2, name: 'Routine Diabetes Check-up', content: 'Fasting blood sugar reviewed. Diet and medication adherence discussed. Continue current treatment.', doctor_id: 1 },
+];
+
+let mockBlockers: CalendarBlocker[] = [
+    { id: 1, start_time: new Date(new Date().setHours(13, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(), reason: 'Lunch Break', doctor_id: 1 },
+];
+
 let mockFollowups: Followup[] = generateFollowups();
 let mockAppointments: Appointment[] = enrichAppointments(mockAppointmentsData);
 
 export const useMockApi = () => {
   const [followups, setFollowups] = useState<Followup[]>(mockFollowups);
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [appointmentState, setAppointments] = useState<Appointment[]>(mockAppointments);
   const [patients, setPatients] = useState<Patient[]>(mockPatients);
   const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
+  const [allUsers, setAllUsers] = useState<User[]>(users);
+  const [allServices, setAllServices] = useState<Service[]>(services);
+  const [noteTemplates, setNoteTemplates] = useState<ClinicalNoteTemplate[]>(mockNoteTemplates);
+  const [blockers, setBlockers] = useState<CalendarBlocker[]>(mockBlockers);
+
+  const login = useCallback(async (email: string, pass: string): Promise<User> => {
+    await new Promise(res => setTimeout(res, 500));
+    const user = allUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (user && user.passwordHash === pass && user.is_active) {
+        return user;
+    }
+    throw new Error("Invalid credentials or inactive user.");
+  }, [allUsers]);
 
   const getFollowupsForDate = useCallback(async (date: Date, branchId: number | 'all'): Promise<Followup[]> => {
     const dateStr = date.toISOString().split('T')[0];
@@ -89,9 +126,9 @@ export const useMockApi = () => {
   const getAppointmentsForDate = useCallback(async (date: Date, branchId: number | 'all'): Promise<Appointment[]> => {
     const dateStr = date.toISOString().split('T')[0];
     await new Promise(res => setTimeout(res, 400));
-    const filtered = appointments.filter(a => a.start_time.split('T')[0] === dateStr && (branchId === 'all' || a.branch_id === branchId));
+    const filtered = appointmentState.filter(a => a.start_time.split('T')[0] === dateStr && (branchId === 'all' || a.branch_id === branchId));
     return filtered.sort((a,b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-  }, [appointments]);
+  }, [appointmentState]);
   
   const getFollowupCounts = useCallback((start: Date, end: Date, branchId: number | 'all'): Record<string, number> => {
       const counts: Record<string, number> = {};
@@ -113,41 +150,44 @@ export const useMockApi = () => {
   const updateAppointment = useCallback(async (updateData: Partial<Appointment> & { id: number }): Promise<Appointment> => {
       await new Promise(res => setTimeout(res, 300));
       let updatedAppointment: Appointment | undefined;
-      let newInvoiceCreated = false;
+      let newAppointments = [...appointmentState];
 
-      const newAppointments = appointments.map(a => {
-          if (a.id === updateData.id) {
-              updatedAppointment = { ...a, ...updateData };
-              // --- BILLING LOGIC ---
-              // If appointment is completed and has no invoice yet, create one.
-              if (updatedAppointment.status === 'completed' && !updatedAppointment.invoice_id) {
-                  const service = services.find(s => s.id === updatedAppointment!.service_id);
-                  if (service) {
-                      const newInvoice: Invoice = {
-                          id: Math.max(0, ...invoices.map(i => i.id)) + 1,
-                          appointment_id: updatedAppointment.id,
-                          service_name: service.name,
-                          amount: service.price,
-                          status: 'pending',
-                          patient_name: updatedAppointment.patient.name,
-                          invoice_date: new Date().toISOString().split('T')[0]
-                      };
-                      mockInvoices = [...invoices, newInvoice];
-                      setInvoices(mockInvoices);
-                      updatedAppointment.invoice_id = newInvoice.id;
-                      newInvoiceCreated = true;
-                  }
-              }
-              return updatedAppointment;
+      const appointmentIndex = newAppointments.findIndex(a => a.id === updateData.id);
+      if (appointmentIndex === -1) throw new Error("Appointment not found");
+      
+      const originalAppointment = newAppointments[appointmentIndex];
+      updatedAppointment = { ...originalAppointment, ...updateData };
+
+      // Set check-in time
+      if (updateData.status === 'checked_in' && !originalAppointment.checked_in_time) {
+          updatedAppointment.checked_in_time = new Date().toISOString();
+      }
+      
+      // --- BILLING LOGIC ---
+      if (updatedAppointment.status === 'completed' && !updatedAppointment.invoice_id) {
+          const service = allServices.find(s => s.id === updatedAppointment!.service_id);
+          if (service) {
+              const newInvoice: Invoice = {
+                  id: Math.max(0, ...invoices.map(i => i.id)) + 1,
+                  appointment_id: updatedAppointment.id,
+                  service_name: service.name,
+                  amount: service.price,
+                  status: 'pending',
+                  patient_name: updatedAppointment.patient.name,
+                  invoice_date: new Date().toISOString().split('T')[0]
+              };
+              const newInvoices = [...invoices, newInvoice];
+              setInvoices(newInvoices);
+              mockInvoices = newInvoices;
+              updatedAppointment.invoice_id = newInvoice.id;
           }
-          return a;
-      });
-      if (!updatedAppointment) throw new Error("Appointment not found");
-
+      }
+      
+      newAppointments[appointmentIndex] = updatedAppointment;
       setAppointments(newAppointments);
       mockAppointments = newAppointments;
       return updatedAppointment;
-  }, [appointments, invoices]);
+  }, [appointmentState, invoices, allServices]);
   
   const createFollowup = useCallback(async (followupData: Omit<Followup, 'id' | 'patient'> & { patient_id: number }): Promise<Followup> => {
       await new Promise(res => setTimeout(res, 300));
@@ -160,26 +200,28 @@ export const useMockApi = () => {
       return newFollowup;
   }, [followups, patients]);
 
-  const createAppointment = useCallback(async (appointmentData: Omit<Appointment, 'id' | 'end_time' | 'patient' | 'service_name'>): Promise<Appointment> => {
+  const createAppointment = useCallback(async (appointmentData: Omit<Appointment, 'id' | 'end_time' | 'patient' | 'service_name' | 'reminder_sent'>): Promise<Appointment> => {
     await new Promise(res => setTimeout(res, 400));
-    const service = services.find(s => s.id === appointmentData.service_id);
+    const service = allServices.find(s => s.id === appointmentData.service_id);
     const patient = patients.find(p => p.id === appointmentData.patient_id);
     if (!service || !patient) throw new Error("Service or Patient not found");
     const startTime = new Date(appointmentData.start_time);
     const endTime = new Date(startTime.getTime() + service.duration_minutes * 60000);
-    const newAppointment: Appointment = { ...appointmentData, id: Math.max(0, ...appointments.map(a => a.id)) + 1, end_time: endTime.toISOString(), patient, service_name: service.name };
-    const newAppointments = [...appointments, newAppointment];
+    const newAppointment: Appointment = { ...appointmentData, id: Math.max(0, ...appointmentState.map(a => a.id)) + 1, end_time: endTime.toISOString(), patient, service_name: service.name, reminder_sent: false };
+    const newAppointments = [...appointmentState, newAppointment];
     setAppointments(newAppointments);
     mockAppointments = newAppointments;
     return newAppointment;
-  }, [appointments, patients]);
+  }, [appointmentState, patients, allServices]);
   
-  const getPatientHistory = useCallback(async (patientId: number): Promise<HistoryItem[]> => {
+  const getPatientHistory = useCallback(async (patientId: number): Promise<{ history: HistoryItem[], documents: PatientDocument[] }> => {
     await new Promise(res => setTimeout(res, 500));
     const patientFollowups: HistoryItem[] = followups.filter(f => f.patient.id === patientId).map(f => ({ ...f, type: 'followup', event_date: f.scheduled_date }));
-    const patientAppointments: HistoryItem[] = appointments.filter(a => a.patient_id === patientId).map(a => ({ ...a, type: 'appointment', event_date: a.start_time.split('T')[0] }));
-    return [...patientFollowups, ...patientAppointments].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
-  }, [followups, appointments]);
+    const patientAppointments: HistoryItem[] = appointmentState.filter(a => a.patient_id === patientId).map(a => ({ ...a, type: 'appointment', event_date: a.start_time.split('T')[0] }));
+    const history = [...patientFollowups, ...patientAppointments].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
+    const documents = mockDocuments.filter(d => d.patient_id === patientId);
+    return { history, documents };
+  }, [followups, appointmentState]);
   
   const searchPatients = useCallback(async (searchTerm: string): Promise<Patient[]> => {
     await new Promise(res => setTimeout(res, 300));
@@ -212,5 +254,85 @@ export const useMockApi = () => {
       return updatedInvoice;
   }, [invoices]);
 
-  return { users, branches, services, patients, getFollowupsForDate, getAppointmentsForDate, getFollowupCounts, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getInvoiceForAppointment, recordPayment };
+  const getDashboardStats = useCallback(async (): Promise<DashboardStats> => {
+    await new Promise(res => setTimeout(res, 600));
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayInvoices = invoices.filter(i => i.invoice_date === todayStr && i.status === 'paid');
+    const todayRevenue = todayInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+    const todayAppointments = appointmentState.filter(a => a.start_time.startsWith(todayStr)).length;
+    const pendingFollowups = followups.filter(f => f.scheduled_date === todayStr && f.status === 'pending').length;
+    const branchPerformance = branches.map(branch => {
+        const branchApptIds = appointmentState.filter(a => a.branch_id === branch.id && a.start_time.startsWith(todayStr)).map(a => a.id);
+        const branchRevenue = invoices.filter(i => branchApptIds.includes(i.appointment_id) && i.status === 'paid' && i.invoice_date === todayStr).reduce((sum, inv) => sum + inv.amount, 0);
+        return { branchName: branch.name, revenue: branchRevenue, appointments: branchApptIds.length };
+    });
+    return { todayRevenue, todayAppointments, pendingFollowups, branchPerformance };
+  }, [invoices, appointmentState, followups]);
+  
+  const updateService = useCallback(async (service: Service): Promise<Service> => {
+      await new Promise(res => setTimeout(res, 200));
+      const newServices = allServices.map(s => s.id === service.id ? service : s);
+      setAllServices(newServices);
+      services = newServices;
+      return service;
+  }, [allServices]);
+
+  const getNoteTemplates = useCallback(async (doctorId: number): Promise<ClinicalNoteTemplate[]> => {
+    await new Promise(res => setTimeout(res, 200));
+    return noteTemplates.filter(t => t.doctor_id === doctorId);
+  }, [noteTemplates]);
+
+  const createNoteTemplate = useCallback(async (template: Omit<ClinicalNoteTemplate, 'id'>): Promise<ClinicalNoteTemplate> => {
+      await new Promise(res => setTimeout(res, 300));
+      const newTemplate = { ...template, id: Math.max(0, ...noteTemplates.map(t => t.id)) + 1 };
+      const newTemplates = [...noteTemplates, newTemplate];
+      setNoteTemplates(newTemplates);
+      mockNoteTemplates = newTemplates;
+      return newTemplate;
+  }, [noteTemplates]);
+
+  const getCalendarBlockers = useCallback(async (date: Date, doctorId: number): Promise<CalendarBlocker[]> => {
+      const dateStr = date.toISOString().split('T')[0];
+      await new Promise(res => setTimeout(res, 100));
+      return blockers.filter(b => b.doctor_id === doctorId && b.start_time.startsWith(dateStr));
+  }, [blockers]);
+  
+  const createCalendarBlocker = useCallback(async (blockerData: Omit<CalendarBlocker, 'id'>): Promise<CalendarBlocker> => {
+      await new Promise(res => setTimeout(res, 300));
+      const newBlocker = { ...blockerData, id: Math.max(0, ...blockers.map(b => b.id)) + 1 };
+      const newBlockers = [...blockers, newBlocker];
+      setBlockers(newBlockers);
+      mockBlockers = newBlockers;
+      return newBlocker;
+  }, [blockers]);
+  
+  const sendMessage = useCallback(async (patientId: number, message: string): Promise<boolean> => {
+      console.log(`Sending message to patient ${patientId}: "${message}"`);
+      await new Promise(res => setTimeout(res, 500));
+      return true; // Simulate successful send
+  }, []);
+
+  const sendAppointmentReminder = useCallback(async (appointmentId: number): Promise<Appointment> => {
+      await new Promise(res => setTimeout(res, 500));
+      const appointmentIndex = appointmentState.findIndex(a => a.id === appointmentId);
+      if (appointmentIndex === -1) throw new Error("Appointment not found");
+      const updatedAppointment = { ...appointmentState[appointmentIndex], reminder_sent: true };
+      const newAppointments = [...appointmentState];
+      newAppointments[appointmentIndex] = updatedAppointment;
+      setAppointments(newAppointments);
+      mockAppointments = newAppointments;
+      return updatedAppointment;
+  }, [appointmentState]);
+
+  const getAllPatients = useCallback(async (): Promise<Patient[]> => {
+      await new Promise(res => setTimeout(res, 300));
+      return patients;
+  }, [patients]);
+  
+  const getAllInvoices = useCallback(async (): Promise<Invoice[]> => {
+      await new Promise(res => setTimeout(res, 300));
+      return invoices;
+  }, [invoices]);
+
+  return { users: allUsers, branches, services: allServices, patients, getFollowupsForDate, getAppointmentsForDate, getFollowupCounts, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getInvoiceForAppointment, recordPayment, login, getDashboardStats, updateService, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getAllPatients, getAllInvoices };
 };

@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
-import { Appointment, Patient, Vitals, PrescriptionItem } from '../types';
-import { SpinnerIcon, HeartPulseIcon, FileTextIcon, PillIcon, TrashIcon, PrintIcon } from './icons';
+import React, { useState, useEffect } from 'react';
+import { Appointment, Patient, Vitals, PrescriptionItem, ClinicalNoteTemplate, User } from '../types';
+import { SpinnerIcon, HeartPulseIcon, FileTextIcon, PillIcon, TrashIcon, PrintIcon, TemplateIcon } from './icons';
 
 interface ConsultationModalProps {
   appointment: Appointment;
   onClose: () => void;
   onComplete: (appointmentId: number, data: { vitals: Vitals; notes: string; prescription: PrescriptionItem[] }) => Promise<void>;
   onShowPatientHistory: (patient: Patient) => void;
+  // FIX: Added getNoteTemplatesApi to props to allow fetching clinical note templates.
+  getNoteTemplatesApi: (doctorId: number) => Promise<ClinicalNoteTemplate[]>;
+  // FIX: Added currentUser to props to get the doctor's ID for fetching templates.
+  currentUser: User;
 }
 
 export const ConsultationModal: React.FC<ConsultationModalProps> = ({
@@ -14,14 +18,29 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   onClose,
   onComplete,
   onShowPatientHistory,
+  getNoteTemplatesApi,
+  currentUser,
 }) => {
   const [vitals, setVitals] = useState<Vitals>(appointment.vitals || { bp: '', temp: 0, weight: 0 });
   const [notes, setNotes] = useState(appointment.notes || '');
   const [prescription, setPrescription] = useState<PrescriptionItem[]>(appointment.prescription || []);
   const [newMed, setNewMed] = useState({ medicine: '', dosage: '', frequency: '', duration: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [templates, setTemplates] = useState<ClinicalNoteTemplate[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
   
   const isCompleted = appointment.status === 'completed';
+
+  useEffect(() => {
+      if (!isCompleted && currentUser.role === 'doctor') {
+          getNoteTemplatesApi(currentUser.id).then(setTemplates).catch(console.error);
+      }
+  }, [getNoteTemplatesApi, currentUser.id, isCompleted, currentUser.role]);
+
+  const handleUseTemplate = (content: string) => {
+      setNotes(prev => `${prev}${prev ? '\n' : ''}${content}`);
+      setShowTemplates(false);
+  }
 
   const handleVitalsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -76,7 +95,26 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
 
             {/* Clinical Notes Section */}
             <div>
-                <h3 className="text-lg font-semibold text-slate-700 mb-3 flex items-center gap-2"><FileTextIcon /> Clinical Notes</h3>
+                <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-lg font-semibold text-slate-700 flex items-center gap-2"><FileTextIcon /> Clinical Notes</h3>
+                    {/* FIX: Added UI to allow doctors to use note templates. */}
+                    {!isCompleted && templates.length > 0 && (
+                        <div className="relative">
+                            <button type="button" onClick={() => setShowTemplates(prev => !prev)} className="text-sm text-blue-600 font-semibold flex items-center gap-1 hover:underline">
+                                <TemplateIcon className="w-4 h-4" /> Use Template
+                            </button>
+                            {showTemplates && (
+                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10 border max-h-60 overflow-y-auto">
+                                    {templates.map(t => (
+                                        <a key={t.id} href="#" onClick={(e) => { e.preventDefault(); handleUseTemplate(t.content); }} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 truncate" title={t.name}>
+                                            {t.name}
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
                 <textarea name="notes" placeholder="Enter symptoms, diagnosis..." value={notes} onChange={e => setNotes(e.target.value)} disabled={isCompleted} className="w-full p-2 border border-slate-300 rounded-md h-32 resize-y disabled:bg-slate-100"></textarea>
             </div>
 

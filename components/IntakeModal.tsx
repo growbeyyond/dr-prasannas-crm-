@@ -7,8 +7,8 @@ interface IntakeModalProps {
   searchPatientsApi: (term: string) => Promise<Patient[]>;
   createPatientApi: (data: Omit<Patient, 'id'>) => Promise<Patient>;
   createFollowupApi: (data: Omit<Followup, 'id' | 'patient'> & { patient_id: number }) => Promise<Followup>;
-  // FIX: Corrected the type for createAppointmentApi to match the expected data structure, omitting 'patient' and 'service_name' which are added by the API function itself.
-  createAppointmentApi: (data: Omit<Appointment, 'id' | 'end_time' | 'patient' | 'service_name'>) => Promise<Appointment>;
+  // FIX: Corrected the type for createAppointmentApi to match what the API hook expects, which does not include 'reminder_sent' in the input.
+  createAppointmentApi: (data: Omit<Appointment, 'id' | 'end_time' | 'patient' | 'service_name' | 'reminder_sent'>) => Promise<Appointment>;
   services: Service[];
   branches: Branch[];
   currentUser: User;

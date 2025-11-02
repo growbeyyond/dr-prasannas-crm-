@@ -17,8 +17,19 @@ export interface Branch {
 export interface User {
   id: number;
   name: string;
+  email: string;
+  passwordHash: string; // In a real app, this would be a hash.
   role: Role;
   branch_id?: number;
+  is_active: boolean;
+}
+
+export interface PatientDocument {
+    id: number;
+    patient_id: number;
+    name: string;
+    url: string; // In a real app, this would be a secure URL to S3/Spaces
+    uploaded_at: string;
 }
 
 export interface Patient {
@@ -27,6 +38,7 @@ export interface Patient {
   phone: string;
   dob?: string;
   gender?: string;
+  documents?: PatientDocument[];
 }
 
 export interface Followup {
@@ -88,12 +100,44 @@ export interface Appointment {
   start_time: string; // ISO string
   end_time: string; // ISO string
   status: AppointmentStatus;
+  checked_in_time?: string | null; // ISO string
   vitals?: Vitals;
   notes?: string;
   prescription?: PrescriptionItem[];
   invoice_id?: number;
+  reminder_sent: boolean;
 }
+
+export interface ClinicalNoteTemplate {
+    id: number;
+    name: string;
+    content: string;
+    doctor_id: number; // So templates can be doctor-specific
+}
+
+export interface CalendarBlocker {
+    id: number;
+    start_time: string; // ISO string
+    end_time: string; // ISO string
+    reason: string;
+    doctor_id: number;
+}
+
+export type AgendaItem = (Appointment & { itemType: 'appointment' }) | (CalendarBlocker & { itemType: 'blocker' });
 
 export type HistoryItem = 
   | (Followup & { type: 'followup'; event_date: string; service_name?: string })
   | (Appointment & { type: 'appointment'; event_date: string; service_name: string });
+
+export interface DashboardStats {
+    todayRevenue: number;
+    todayAppointments: number;
+    pendingFollowups: number;
+    branchPerformance: { branchName: string; revenue: number; appointments: number }[];
+}
+
+export interface Toast {
+    id: number;
+    message: string;
+    type: 'success' | 'info' | 'error';
+}

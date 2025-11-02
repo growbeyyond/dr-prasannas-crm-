@@ -9,6 +9,9 @@ interface FollowUpItemProps {
   isProcessing: boolean;
   onCreateAppointment: (followup: Followup) => void;
   onShowPatientHistory: (followup: Followup) => void;
+  isSelected: boolean;
+  onSelectToggle: (id: number) => void;
+  canBulkAction: boolean;
 }
 
 const priorityClasses = {
@@ -18,7 +21,17 @@ const priorityClasses = {
   urgent: 'border-l-4 border-red-500 animate-pulse',
 };
 
-export const FollowUpItem: React.FC<FollowUpItemProps> = ({ followup, onMarkDone, onSnooze, isProcessing, onCreateAppointment, onShowPatientHistory }) => {
+export const FollowUpItem: React.FC<FollowUpItemProps> = ({ 
+    followup, 
+    onMarkDone, 
+    onSnooze, 
+    isProcessing, 
+    onCreateAppointment, 
+    onShowPatientHistory,
+    isSelected,
+    onSelectToggle,
+    canBulkAction 
+}) => {
   const isOverdue = followup.status === 'pending' && new Date(followup.scheduled_date) < new Date(new Date().toDateString());
   const isDone = followup.status === 'done';
 
@@ -27,7 +40,12 @@ export const FollowUpItem: React.FC<FollowUpItemProps> = ({ followup, onMarkDone
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm transition-shadow hover:shadow-md flex flex-col md:flex-row items-start md:items-center justify-between p-3 gap-3 ${priorityClasses[followup.priority]} ${isOverdue ? 'bg-red-50' : ''} ${isDone ? 'bg-slate-100 opacity-60' : ''}`}>
+    <div className={`bg-white rounded-lg shadow-sm transition-shadow hover:shadow-md flex items-start md:items-center p-3 gap-3 ${priorityClasses[followup.priority]} ${isOverdue ? 'bg-red-50' : ''} ${isDone ? 'bg-slate-100 opacity-60' : ''} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+      {canBulkAction && (
+          <div className="flex items-center h-full pt-1 md:pt-0">
+              <input type="checkbox" checked={isSelected} onChange={() => onSelectToggle(followup.id)} className="h-4 w-4 rounded" />
+          </div>
+      )}
       <div className={`flex-grow ${isDone ? 'line-through text-slate-500' : ''}`}>
         <div className="font-bold text-slate-800">{followup.patient?.name}
           <span className="text-sm font-normal text-slate-500 ml-2">({followup.patient?.phone})</span>
@@ -39,7 +57,7 @@ export const FollowUpItem: React.FC<FollowUpItemProps> = ({ followup, onMarkDone
             {followup.recurrence && <span>&bull; Recurrence: {followup.recurrence.interval} {followup.recurrence.type}</span>}
         </div>
       </div>
-      <div className="flex items-center gap-1.5 flex-wrap justify-start md:justify-end w-full md:w-auto">
+      <div className="flex items-center gap-1.5 flex-wrap justify-start md:justify-end w-full md:w-auto self-end">
         <button onClick={() => callNumber(followup.patient.phone)} disabled={isProcessing || isDone} className="flex items-center gap-1 px-3 py-1.5 border rounded-md text-sm bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
             <PhoneIcon/> Call
         </button>
