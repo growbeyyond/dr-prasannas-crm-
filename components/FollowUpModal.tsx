@@ -239,8 +239,8 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
             <div className="space-y-3">
               {canBulkAction && filteredFollowups.length > 0 && (
                   <div className="flex items-center gap-2 p-2 border-b">
-                      <input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size === filteredFollowups.length && filteredFollowups.length > 0} />
-                      <label>Select All</label>
+                      <input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size === filteredFollowups.length && filteredFollowups.length > 0} id="select-all" />
+                      <label htmlFor="select-all" className="font-semibold text-slate-600">Select All ({selectedIds.size})</label>
                   </div>
               )}
               {filteredFollowups.map(f => (

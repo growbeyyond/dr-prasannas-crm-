@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -23,6 +22,30 @@
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #64748b;
+      }
+      @media print {
+        body {
+          background-color: white;
+          font-size: 10pt;
+        }
+        header, .no-print, button, .modal-backdrop {
+          display: none !important;
+        }
+        main {
+          padding: 0 !important;
+        }
+        .printable-area {
+          display: block !important;
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          box-shadow: none !important;
+          border: none !important;
+        }
+        .print-only {
+            display: block !important;
+        }
       }
     </style>
   <script type="importmap">

@@ -1,6 +1,5 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { CalendarView } from './components/CalendarView';
 import { Header } from './components/Header';
 import { FollowUpModal } from './components/FollowUpModal';
 import { IntakeModal } from './components/IntakeModal';
@@ -8,8 +7,8 @@ import { TodaysAgenda } from './components/TodaysAgenda';
 import { ConsultationModal } from './components/ConsultationModal';
 import { BillingModal } from './components/BillingModal';
 import { useMockApi } from './hooks/useMockApi';
-import { User, Followup, Branch, Patient, Service, HistoryItem, Appointment, Vitals, PrescriptionItem, PatientDocument, ClinicalNoteTemplate, CalendarBlocker, Toast, AgendaItem, AppointmentStatus } from './types';
-import { SpinnerIcon } from './components/icons';
+// FIX: Import CalendarBlocker type
+import { User, Followup, Patient, HistoryItem, Appointment, Vitals, PrescriptionItem, PatientDocument, Toast, AgendaItem, AppointmentStatus, CalendarBlocker } from './types';
 import { LoginScreen } from './components/LoginScreen';
 import { Dashboard } from './components/Dashboard';
 import { Settings } from './components/Settings';
@@ -18,145 +17,15 @@ import { WaitingRoom } from './components/WaitingRoom';
 import { CommunicationModal } from './components/CommunicationModal';
 import { BlockTimeModal } from './components/BlockTimeModal';
 import { ToastContainer } from './components/Toast';
+import { CreateAppointmentModal } from './components/CreateAppointmentModal';
+import { CalendarView } from './components/CalendarView';
 
-
-// --- CreateAppointmentModal Component ---
-interface CreateAppointmentModalProps {
-  patient: Patient;
-  services: Service[];
-  branches: Branch[];
-  currentUser: User;
-  onClose: () => void;
-  onCreateAppointment: (data: { 
-    patient_id: number; 
-    service_id: number; 
-    start_time: string; 
-    branch_id: number; 
-    doctor_id: number;
-    status: 'confirmed';
-  }) => Promise<void>;
-}
-
-const CreateAppointmentModal: React.FC<CreateAppointmentModalProps> = ({
-  patient,
-  services,
-  branches,
-  currentUser,
-  onClose,
-  onCreateAppointment,
-}) => {
-  const [serviceId, setServiceId] = useState<string>(services[0]?.id.toString() || '');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState<string>('09:00');
-  const [branchId, setBranchId] = useState<string>(
-    (currentUser.branch_id || branches[0]?.id).toString()
-  );
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!serviceId || !date || !time || !branchId) {
-      alert('Please fill all fields.');
-      return;
-    }
-    setIsSubmitting(true);
-    const start_time = new Date(`${date}T${time}:00`).toISOString();
-    
-    await onCreateAppointment({
-      patient_id: patient.id,
-      service_id: Number(serviceId),
-      start_time,
-      branch_id: Number(branchId),
-      doctor_id: 1, // Assuming Dr. Prasanna is always doctor_id 1
-      status: 'confirmed',
-    });
-    setIsSubmitting(false);
-  };
-
-  const availableTimeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '14:00', '14:30', '15:00', '15:30', '16:00'];
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4" onClick={onClose}>
-      <div className="bg-white w-full max-w-lg rounded-lg shadow-xl" onClick={e => e.stopPropagation()}>
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 border-b">
-            <h2 className="text-2xl font-bold text-slate-800">New Appointment</h2>
-            <p className="text-slate-600 mt-1">For: <span className="font-semibold">{patient.name}</span></p>
-          </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <label htmlFor="service" className="block text-sm font-medium text-slate-700 mb-1">Service</label>
-              <select
-                id="service"
-                value={serviceId}
-                onChange={(e) => setServiceId(e.target.value)}
-                className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.duration_minutes} min)</option>)}
-              </select>
-            </div>
-            
-            {currentUser.role === 'doctor' && (
-              <div>
-                <label htmlFor="branch" className="block text-sm font-medium text-slate-700 mb-1">Branch</label>
-                <select
-                  id="branch"
-                  value={branchId}
-                  onChange={(e) => setBranchId(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                  required
-                >
-                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="date" className="block text-sm font-medium text-slate-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  id="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-md"
-                  min={new Date().toISOString().split('T')[0]}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="time" className="block text-sm font-medium text-slate-700 mb-1">Time</label>
-                <select
-                  id="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-md"
-                  required
-                >
-                  {availableTimeSlots.map(slot => <option key={slot} value={slot}>{slot}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-          <div className="px-6 py-4 bg-slate-50 flex justify-end gap-3 rounded-b-lg">
-            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-md text-slate-700 bg-white hover:bg-slate-50">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 flex items-center gap-2">
-              {isSubmitting && <SpinnerIcon className="w-4 h-4" />}
-              Create Appointment
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
 
 type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room';
 
 export default function App() {
   const api = useMockApi();
-  const { users, branches, services, getFollowupsForDate, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getAppointmentsForDate, login, getDashboardStats, updateService, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder } = api;
+  const { users, branches, services, getFollowupsForDate, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getAppointmentsForDate, login, getDashboardStats, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getLatestNoteForPatient, runAutomatedReminders } = api;
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const [selectedBranchId, setSelectedBranchId] = useState<number | 'all'>('all');
@@ -183,8 +52,6 @@ export default function App() {
 
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // FIX: Moved addToast and removeToast before their usage in fetchAgendaAndBlockers to fix a "used before declaration" error.
-  // Also wrapped removeToast in useCallback and added it as a dependency to addToast to fix a stale closure bug.
   const removeToast = useCallback((id: number) => {
       setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
@@ -195,16 +62,11 @@ export default function App() {
       setTimeout(() => removeToast(id), 5000);
   }, [removeToast]);
 
-  // --- Agenda and Waiting Room State ---
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
   const [isAgendaLoading, setIsAgendaLoading] = useState(true);
 
   const fetchAgendaAndBlockers = useCallback(async () => {
     if (!currentUser) return;
-    
-    // Don't show main loader on background refresh
-    // setIsAgendaLoading(true); 
-    
     try {
         const today = new Date();
         const appointmentsData = await getAppointmentsForDate(today, selectedBranchId);
@@ -231,7 +93,7 @@ export default function App() {
       if (currentUser && (view === 'agenda' || view === 'waiting_room')) {
           setIsAgendaLoading(true);
           fetchAgendaAndBlockers();
-          const interval = setInterval(fetchAgendaAndBlockers, 30000); // Poll every 30s
+          const interval = setInterval(fetchAgendaAndBlockers, 30000);
           return () => clearInterval(interval);
       }
   }, [view, currentUser, fetchAgendaAndBlockers]);
@@ -270,11 +132,12 @@ export default function App() {
   const handleCreateAppointment = async (data: Omit<Appointment, 'id' | 'end_time' | 'patient' | 'service_name' | 'reminder_sent'>) => {
     try {
       await createAppointment(data);
-      addToast(`Appointment created for ${appointmentModalState.patient?.name}!`, 'success');
+      addToast(`Appointment created successfully!`, 'success');
       if (new Date(data.start_time).toDateString() === new Date().toDateString()) {
-          fetchAgendaAndBlockers(); // Refresh agenda if appointment is for today
+          fetchAgendaAndBlockers();
       }
       closeAppointmentModal();
+      setIsIntakeModalOpen(false); // Close intake modal if open
     } catch (err) {
       console.error(err);
       addToast('Failed to create appointment.', 'error');
@@ -302,8 +165,9 @@ export default function App() {
       await updateAppointment({ id: appointmentId, ...data, status: 'completed' });
       setConsultationModalState({ isOpen: false, appointment: null });
       addToast('Consultation completed and saved.', 'success');
-      fetchAgendaAndBlockers(); // Refresh agenda
-    } catch (err) {
+      fetchAgendaAndBlockers();
+    } catch (err)
+ {
       console.error(err);
       addToast('Failed to save consultation.', 'error');
     }
@@ -316,7 +180,7 @@ export default function App() {
           await createCalendarBlocker(blockerData);
           setIsBlockTimeModalOpen(false);
           addToast('Time has been blocked successfully.', 'success');
-          fetchAgendaAndBlockers(); // Refresh agenda
+          fetchAgendaAndBlockers();
       } catch (e) {
           addToast('Failed to block time.', 'error');
       }
@@ -326,7 +190,7 @@ export default function App() {
       try {
           await sendAppointmentReminder(appointmentId);
           addToast('Appointment reminder sent.', 'success');
-          fetchAgendaAndBlockers(); // Refresh agenda to update reminder status
+          fetchAgendaAndBlockers();
       } catch (e) {
           addToast('Failed to send reminder.', 'error');
       }
@@ -338,7 +202,7 @@ export default function App() {
         if (newStatus === 'checked_in') {
             addToast(`Patient ${appointment.patient.name} checked in. Dr. Prasanna has been notified.`, 'info');
         }
-        fetchAgendaAndBlockers(); // Always refetch to get latest state
+        fetchAgendaAndBlockers();
     } catch (err) {
         addToast('Failed to update status', 'error');
     }
@@ -368,7 +232,7 @@ export default function App() {
       />
       <main className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
-            {view === 'dashboard' && <Dashboard getStatsApi={getDashboardStats} />}
+            {view === 'dashboard' && <Dashboard getStatsApi={getDashboardStats} runAutomatedRemindersApi={runAutomatedReminders} addToast={addToast} />}
             {view === 'agenda' && (
                 <TodaysAgenda 
                     agendaItems={agendaItems}
@@ -398,16 +262,18 @@ export default function App() {
           searchPatientsApi={searchPatients}
           createPatientApi={createPatient}
           createFollowupApi={createFollowup}
-          createAppointmentApi={createAppointment}
+          createAppointmentApi={handleCreateAppointment}
           services={services}
           branches={branches}
           currentUser={currentUser}
+          getAppointmentsForDate={getAppointmentsForDate}
+          getCalendarBlockers={getCalendarBlockers}
         />
       )}
       {modalState.isOpen && modalState.date && <FollowUpModal date={modalState.date} branchId={selectedBranchId} initialFollowups={followups} loading={loadingFollowups} onClose={closeModal} onUpdate={onFollowupUpdate} updateFollowupApi={updateFollowup} createFollowupApi={createFollowup} currentUser={currentUser} onInitiateAppointment={handleInitiateAppointment} onShowPatientHistory={handleShowPatientHistory} />}
-      {appointmentModalState.isOpen && appointmentModalState.patient && <CreateAppointmentModal patient={appointmentModalState.patient} onClose={closeAppointmentModal} services={services} branches={branches} currentUser={currentUser} onCreateAppointment={handleCreateAppointment} />}
+      {appointmentModalState.isOpen && appointmentModalState.patient && <CreateAppointmentModal patient={appointmentModalState.patient} onClose={closeAppointmentModal} services={services} branches={branches} currentUser={currentUser} onCreateAppointment={handleCreateAppointment} getAppointmentsForDate={getAppointmentsForDate} getCalendarBlockers={getCalendarBlockers} />}
       {patientHistoryModalState.isOpen && patientHistoryModalState.patient && <PatientHistoryModal patient={patientHistoryModalState.patient} history={patientHistoryModalState.history} documents={patientHistoryModalState.documents} allAppointments={patientHistoryModalState.history.filter(item => item.type === 'appointment') as Appointment[]} loading={patientHistoryModalState.loading} onClose={closePatientHistoryModal} />}
-      {consultationModalState.isOpen && consultationModalState.appointment && <ConsultationModal appointment={consultationModalState.appointment} onClose={() => setConsultationModalState({ isOpen: false, appointment: null })} onComplete={handleCompleteConsultation} onShowPatientHistory={handleShowPatientHistory} getNoteTemplatesApi={getNoteTemplates} currentUser={currentUser} />}
+      {consultationModalState.isOpen && consultationModalState.appointment && <ConsultationModal appointment={consultationModalState.appointment} onClose={() => setConsultationModalState({ isOpen: false, appointment: null })} onComplete={handleCompleteConsultation} onShowPatientHistory={handleShowPatientHistory} getNoteTemplatesApi={getNoteTemplates} currentUser={currentUser} getLatestNoteForPatientApi={getLatestNoteForPatient} />}
       {billingModalState.isOpen && billingModalState.appointment && <BillingModal appointment={billingModalState.appointment} onClose={() => setBillingModalState({ isOpen: false, appointment: null })} getInvoiceApi={api.getInvoiceForAppointment} recordPaymentApi={api.recordPayment} />}
       {communicationModalState.isOpen && communicationModalState.appointment && <CommunicationModal appointment={communicationModalState.appointment} onClose={() => setCommunicationModalState({ isOpen: false, appointment: null })} sendMessageApi={sendMessage} />}
       {isBlockTimeModalOpen && <BlockTimeModal onClose={() => setIsBlockTimeModalOpen(false)} onCreateBlocker={handleCreateBlocker} currentUser={currentUser} />}

@@ -1,59 +1,69 @@
 import React, { useState, useEffect } from 'react';
 import { useMockApi } from '../hooks/useMockApi';
-import { Service, User, Branch, Role, ClinicalNoteTemplate, Patient, Invoice } from '../types';
-import { SpinnerIcon, DownloadIcon } from './icons';
+import { Service, User, ClinicalNoteTemplate, InventoryItem } from '../types';
+import { SpinnerIcon, DownloadIcon, CoinsIcon, BoxIcon, TemplateIcon } from './icons';
+import { FinancialsReport } from './FinancialsReport';
+import { ManageInventory } from './ManageInventory';
 
 interface SettingsProps {
     api: ReturnType<typeof useMockApi>;
     currentUser: User;
 }
 
-type SettingsTab = 'services' | 'users' | 'branches' | 'templates' | 'export';
+type SettingsTab = 'services' | 'users' | 'branches' | 'templates' | 'export' | 'financials' | 'inventory';
 
 export const Settings: React.FC<SettingsProps> = ({ api, currentUser }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('services');
     const isAdmin = currentUser.role === 'admin';
-    
+    const isDoctor = currentUser.role === 'doctor';
+
     return (
         <div className="bg-white shadow-lg rounded-lg">
             <div className="p-6 border-b">
-                <h1 className="text-3xl font-bold text-slate-800">Settings</h1>
-                <p className="text-slate-500">Manage your clinic's services, users, and branches.</p>
+                <h1 className="text-3xl font-bold text-slate-800">Settings & Admin</h1>
+                <p className="text-slate-500">Manage all aspects of your clinic's operations.</p>
             </div>
             <div className="flex border-b overflow-x-auto">
-                <TabButton title="Services" isActive={activeTab === 'services'} onClick={() => setActiveTab('services')} />
-                <TabButton title="Users" isActive={activeTab === 'users'} onClick={() => setActiveTab('users')} />
-                <TabButton title="Branches" isActive={activeTab === 'branches'} onClick={() => setActiveTab('branches')} />
-                {currentUser.role === 'doctor' && (
-                    <TabButton title="Note Templates" isActive={activeTab === 'templates'} onClick={() => setActiveTab('templates')} />
-                )}
-                {isAdmin && (
-                     <TabButton title="Export Data" isActive={activeTab === 'export'} onClick={() => setActiveTab('export')} />
-                )}
+                {(isAdmin || isDoctor) && <TabButton title="Services" icon={<SpinnerIcon className="w-4 h-4" />} isActive={activeTab === 'services'} onClick={() => setActiveTab('services')} />}
+                {isAdmin && <TabButton title="Users" icon={<User className="w-4 h-4" />} isActive={activeTab === 'users'} onClick={() => setActiveTab('users')} />}
+                {isAdmin && <TabButton title="Branches" icon={<SpinnerIcon className="w-4 h-4" />} isActive={activeTab === 'branches'} onClick={() => setActiveTab('branches')} />}
+                {isDoctor && <TabButton title="Note Templates" icon={<TemplateIcon className="w-4 h-4" />} isActive={activeTab === 'templates'} onClick={() => setActiveTab('templates')} />}
+                {isAdmin && <TabButton title="Financials" icon={<CoinsIcon className="w-4 h-4" />} isActive={activeTab === 'financials'} onClick={() => setActiveTab('financials')} />}
+                {(isAdmin || isDoctor) && <TabButton title="Inventory" icon={<BoxIcon className="w-4 h-4" />} isActive={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} />}
+                {isAdmin && <TabButton title="Export Data" icon={<DownloadIcon className="w-4 h-4" />} isActive={activeTab === 'export'} onClick={() => setActiveTab('export')} />}
             </div>
             <div className="p-6">
                 {activeTab === 'services' && <ManageServices api={api} />}
                 {activeTab === 'users' && <ManageUsers api={api} />}
                 {activeTab === 'branches' && <ManageBranches api={api} />}
-                {activeTab === 'templates' && currentUser.role === 'doctor' && <ManageTemplates api={api} currentUser={currentUser} />}
+                {activeTab === 'templates' && isDoctor && <ManageTemplates api={api} currentUser={currentUser} />}
                 {activeTab === 'export' && isAdmin && <ExportData api={api} />}
+                {activeTab === 'financials' && isAdmin && <FinancialsReport api={api} />}
+                {activeTab === 'inventory' && (isAdmin || isDoctor) && <ManageInventory api={api} />}
             </div>
         </div>
     );
 };
 
-const TabButton: React.FC<{ title: string, isActive: boolean, onClick: () => void }> = ({ title, isActive, onClick }) => (
+const TabButton: React.FC<{ title: string, icon: React.ReactNode, isActive: boolean, onClick: () => void }> = ({ title, icon, isActive, onClick }) => (
     <button 
         onClick={onClick}
-        className={`px-6 py-3 font-semibold text-sm whitespace-nowrap ${isActive ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-500 hover:bg-slate-50'}`}
+        className={`flex items-center gap-2 px-6 py-3 font-semibold text-sm whitespace-nowrap ${isActive ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-500 hover:bg-slate-50'}`}
     >
-        {title}
+        {icon} {title}
     </button>
 );
 
+const User: React.FC<{className: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197" />
+    </svg>
+);
+
+
 const ExportData: React.FC<{ api: ReturnType<typeof useMockApi> }> = ({ api }) => {
     const { getAllPatients, getAllInvoices } = api;
-    const [isExporting, setIsExporting] = useState(false);
+    const [isExporting, setIsExporting] = useState<null | 'patients' | 'invoices'>(null);
     
     const downloadCSV = (content: string, filename: string) => {
         const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
@@ -70,7 +80,7 @@ const ExportData: React.FC<{ api: ReturnType<typeof useMockApi> }> = ({ api }) =
     };
 
     const handleExportPatients = async () => {
-        setIsExporting(true);
+        setIsExporting('patients');
         try {
             const patients = await getAllPatients();
             const headers = "id,name,phone,dob,gender\n";
@@ -79,12 +89,12 @@ const ExportData: React.FC<{ api: ReturnType<typeof useMockApi> }> = ({ api }) =
         } catch (e) {
             alert("Failed to export patients.");
         } finally {
-            setIsExporting(false);
+            setIsExporting(null);
         }
     };
 
     const handleExportInvoices = async () => {
-        setIsExporting(true);
+        setIsExporting('invoices');
         try {
             const invoices = await getAllInvoices();
             const headers = "id,appointment_id,patient_name,service_name,amount,status,invoice_date\n";
@@ -93,7 +103,7 @@ const ExportData: React.FC<{ api: ReturnType<typeof useMockApi> }> = ({ api }) =
         } catch (e) {
             alert("Failed to export invoices.");
         } finally {
-            setIsExporting(false);
+            setIsExporting(null);
         }
     };
 
@@ -102,12 +112,12 @@ const ExportData: React.FC<{ api: ReturnType<typeof useMockApi> }> = ({ api }) =
             <h2 className="text-xl font-bold mb-4">Export Clinic Data</h2>
             <p className="text-slate-500 mb-6">Download your clinic's data in CSV format for backups or external analysis.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <button onClick={handleExportPatients} disabled={isExporting} className="flex items-center justify-center gap-2 p-4 border rounded-lg hover:bg-slate-50 disabled:opacity-50">
-                    {isExporting ? <SpinnerIcon /> : <DownloadIcon />}
+                <button onClick={handleExportPatients} disabled={!!isExporting} className="flex items-center justify-center gap-2 p-4 border rounded-lg hover:bg-slate-50 disabled:opacity-50">
+                    {isExporting ==='patients' ? <SpinnerIcon /> : <DownloadIcon />}
                     <span className="font-semibold">Export All Patients</span>
                 </button>
-                <button onClick={handleExportInvoices} disabled={isExporting} className="flex items-center justify-center gap-2 p-4 border rounded-lg hover:bg-slate-50 disabled:opacity-50">
-                    {isExporting ? <SpinnerIcon /> : <DownloadIcon />}
+                <button onClick={handleExportInvoices} disabled={!!isExporting} className="flex items-center justify-center gap-2 p-4 border rounded-lg hover:bg-slate-50 disabled:opacity-50">
+                    {isExporting === 'invoices' ? <SpinnerIcon /> : <DownloadIcon />}
                     <span className="font-semibold">Export All Invoices</span>
                 </button>
             </div>
@@ -270,7 +280,6 @@ const ManageServices: React.FC<{ api: ReturnType<typeof useMockApi> }> = ({ api 
     );
 };
 
-// Placeholder components for Users and Branches
 const ManageUsers: React.FC<{ api: ReturnType<typeof useMockApi> }> = ({ api }) => {
      const { users } = api;
      return (

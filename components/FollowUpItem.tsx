@@ -43,7 +43,7 @@ export const FollowUpItem: React.FC<FollowUpItemProps> = ({
     <div className={`bg-white rounded-lg shadow-sm transition-shadow hover:shadow-md flex items-start md:items-center p-3 gap-3 ${priorityClasses[followup.priority]} ${isOverdue ? 'bg-red-50' : ''} ${isDone ? 'bg-slate-100 opacity-60' : ''} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
       {canBulkAction && (
           <div className="flex items-center h-full pt-1 md:pt-0">
-              <input type="checkbox" checked={isSelected} onChange={() => onSelectToggle(followup.id)} className="h-4 w-4 rounded" />
+              <input type="checkbox" checked={isSelected} onChange={() => onSelectToggle(followup.id)} className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
           </div>
       )}
       <div className={`flex-grow ${isDone ? 'line-through text-slate-500' : ''}`}>

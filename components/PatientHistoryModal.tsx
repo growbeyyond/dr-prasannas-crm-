@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Patient, HistoryItem, PatientDocument, Appointment } from '../types';
-import { SpinnerIcon, ClipboardListIcon, StethoscopeIcon, DocumentIcon, UploadIcon } from './icons';
+import { SpinnerIcon, ClipboardListIcon, StethoscopeIcon, DocumentIcon, UploadIcon, PhoneIcon, WhatsAppIcon, PrintIcon } from './icons';
 
 interface PatientHistoryModalProps {
   patient: Patient;
@@ -15,7 +15,6 @@ type Tab = 'timeline' | 'vitals' | 'documents';
 
 const getAge = (dob: string | undefined): number | 'N/A' => dob ? new Date().getFullYear() - new Date(dob).getFullYear() : 'N/A';
 
-// A simple placeholder for the chart. In a real app, use a library like Recharts.
 const VitalsChart: React.FC<{ appointments: Appointment[] }> = ({ appointments }) => {
     const vitalsHistory = appointments
         .filter(a => a.vitals && a.status === 'completed')
@@ -59,21 +58,60 @@ const VitalsChart: React.FC<{ appointments: Appointment[] }> = ({ appointments }
     );
 };
 
+const PrintableReport: React.FC<{ patient: Patient, history: HistoryItem[] }> = ({ patient, history }) => (
+    <div className="print-only hidden p-8">
+        <h1 className="text-3xl font-bold">Patient Report</h1>
+        <p className="text-lg mb-6">Dr. Prasanna's Clinic</p>
+        
+        <div className="mb-6 border-b pb-4">
+            <p><strong>Patient:</strong> {patient.name}</p>
+            <p><strong>Age:</strong> {getAge(patient.dob)}</p>
+            <p><strong>Phone:</strong> {patient.phone}</p>
+            <p><strong>Report Generated:</strong> {new Date().toLocaleString()}</p>
+        </div>
+
+        <h2 className="text-2xl font-semibold mb-4">Medical History</h2>
+        <div className="space-y-4">
+            {history.map(item => (
+                <div key={`${item.type}-${item.id}`} className="pb-2 border-b">
+                    <p><strong>Date:</strong> {new Date(item.event_date).toLocaleDateString()}</p>
+                    <p><strong>Type:</strong> <span className="capitalize">{item.type}</span></p>
+                    <p><strong>Details:</strong> {item.service_name || item.notes}</p>
+                    {item.type === 'appointment' && item.notes && <p className="mt-1"><strong>Notes:</strong> {item.notes}</p>}
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
 
 export const PatientHistoryModal: React.FC<PatientHistoryModalProps> = ({ patient, history, documents, allAppointments, loading, onClose }) => {
   const [activeTab, setActiveTab] = useState<Tab>('timeline');
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[75] p-4" onClick={onClose}>
-      <div className="bg-white w-full max-w-4xl rounded-lg shadow-xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b">
-            <h2 className="text-2xl font-bold text-slate-800">Patient History</h2>
-            <p className="text-slate-600 mt-1">
-                <span className="font-semibold">{patient.name}</span> ({getAge(patient.dob)} yrs) - {patient.phone}
-            </p>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[75] p-4 modal-backdrop" onClick={onClose}>
+      <div className="bg-white w-full max-w-4xl rounded-lg shadow-xl flex flex-col max-h-[90vh] printable-area" onClick={e => e.stopPropagation()}>
+        <PrintableReport patient={patient} history={history} />
+        <div className="p-6 border-b no-print">
+            <div className="flex justify-between items-start">
+                 <div>
+                    <h2 className="text-2xl font-bold text-slate-800">Patient History</h2>
+                    <p className="text-slate-600 mt-1">
+                        <span className="font-semibold">{patient.name}</span> ({getAge(patient.dob)} yrs) - {patient.phone}
+                    </p>
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <a href={`tel:${patient.phone}`} className="flex items-center gap-2 px-3 py-1.5 border rounded-md text-sm bg-white hover:bg-slate-50">
+                        <PhoneIcon /> Call
+                    </a>
+                     <a href={`https://wa.me/${patient.phone}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-1.5 border rounded-md text-sm bg-white hover:bg-slate-50">
+                        <WhatsAppIcon /> WhatsApp
+                    </a>
+                 </div>
+            </div>
         </div>
 
-        <div className="border-b border-slate-200">
+        <div className="border-b border-slate-200 no-print">
             <nav className="flex -mb-px px-6" aria-label="Tabs">
                 <button onClick={() => setActiveTab('timeline')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'timeline' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
                     Timeline
@@ -87,7 +125,7 @@ export const PatientHistoryModal: React.FC<PatientHistoryModalProps> = ({ patien
             </nav>
         </div>
         
-        <div className="p-6 flex-grow overflow-auto">
+        <div className="p-6 flex-grow overflow-auto no-print">
             {loading ? <div className="flex justify-center items-center h-full"><SpinnerIcon className="w-8 h-8" /></div> : (
                 <>
                     {activeTab === 'timeline' && (
@@ -134,8 +172,9 @@ export const PatientHistoryModal: React.FC<PatientHistoryModalProps> = ({ patien
             )}
         </div>
 
-        <div className="px-6 py-4 bg-slate-50 flex justify-end gap-3 rounded-b-lg border-t">
-          <button type="button" onClick={onClose} className="px-4 py-2 border rounded-md text-slate-700 bg-white hover:bg-slate-50">Close</button>
+        <div className="px-6 py-4 bg-slate-50 flex justify-between gap-3 rounded-b-lg border-t no-print">
+            <button type="button" onClick={() => window.print()} className="px-4 py-2 border rounded-md text-slate-700 bg-white hover:bg-slate-50 flex items-center gap-2"><PrintIcon className="w-4 h-4"/>Print Report</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-md text-slate-700 bg-white hover:bg-slate-50">Close</button>
         </div>
       </div>
     </div>

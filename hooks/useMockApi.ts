@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { User, Branch, Patient, Followup, Service, Appointment, HistoryItem, Vitals, Invoice, PrescriptionItem, DashboardStats, ClinicalNoteTemplate, PatientDocument, CalendarBlocker } from '../types';
+import { User, Branch, Patient, Followup, Service, Appointment, HistoryItem, Vitals, Invoice, PrescriptionItem, DashboardStats, ClinicalNoteTemplate, PatientDocument, CalendarBlocker, InventoryItem } from '../types';
 
 // --- MOCK DATABASE ---
 
@@ -54,6 +54,12 @@ let mockInvoices: Invoice[] = [
     }
 ];
 
+let mockInventory: InventoryItem[] = [
+    { id: 1, name: 'Paracetamol 500mg', stock: 180, low_stock_threshold: 50 },
+    { id: 2, name: 'Amoxicillin 250mg', stock: 45, low_stock_threshold: 50 },
+    { id: 3, name: 'Aspirin 75mg', stock: 250, low_stock_threshold: 100 },
+];
+
 const enrichAppointments = (appointments: Omit<Appointment, 'patient' | 'service_name'>[]): Appointment[] => {
     return appointments.map(appt => {
         const patient = mockPatients.find(p => p.id === appt.patient_id);
@@ -68,7 +74,7 @@ const enrichAppointments = (appointments: Omit<Appointment, 'patient' | 'service
 };
 
 let mockAppointmentsData: Omit<Appointment, 'patient' | 'service_name'>[] = [
-    { id: 1, branch_id: 1, doctor_id: 1, patient_id: 45, service_id: 1, start_time: new Date(new Date().setHours(10, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(10, 30, 0, 0)).toISOString(), status: 'completed', invoice_id: 2, reminder_sent: true },
+    { id: 1, branch_id: 1, doctor_id: 1, patient_id: 45, service_id: 1, start_time: new Date(new Date().setHours(10, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(10, 30, 0, 0)).toISOString(), status: 'completed', invoice_id: 2, reminder_sent: true, notes: "Patient reported feeling better. Blood pressure is stable. Continue medication as prescribed. Re-evaluate in 30 days.", vitals: { bp: '120/80', temp: 37.0, weight: 70 }},
     { id: 2, branch_id: 1, doctor_id: 1, patient_id: 46, service_id: 2, start_time: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(11, 20, 0, 0)).toISOString(), status: 'confirmed', reminder_sent: false },
     { id: 3, branch_id: 2, doctor_id: 1, patient_id: 47, service_id: 1, start_time: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(), end_time: new Date(new Date().setHours(14, 30, 0, 0)).toISOString(), status: 'confirmed', reminder_sent: false },
     { id: 4, branch_id: 1, doctor_id: 1, patient_id: 45, service_id: 2, start_time: new Date(new Date().setDate(new Date().getDate() - 20)).toISOString(), end_time: new Date(new Date(new Date().setDate(new Date().getDate() - 20)).getTime() + 20 * 60000).toISOString(), status: 'completed', notes: 'Patient responded well to the treatment. Recommended a follow-up in a month.', vitals: { bp: '122/81', temp: 36.8, weight: 72 }, invoice_id: 1, reminder_sent: true }
@@ -107,6 +113,7 @@ export const useMockApi = () => {
   const [allServices, setAllServices] = useState<Service[]>(services);
   const [noteTemplates, setNoteTemplates] = useState<ClinicalNoteTemplate[]>(mockNoteTemplates);
   const [blockers, setBlockers] = useState<CalendarBlocker[]>(mockBlockers);
+  const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
 
   const login = useCallback(async (email: string, pass: string): Promise<User> => {
     await new Promise(res => setTimeout(res, 500));
@@ -158,12 +165,10 @@ export const useMockApi = () => {
       const originalAppointment = newAppointments[appointmentIndex];
       updatedAppointment = { ...originalAppointment, ...updateData };
 
-      // Set check-in time
       if (updateData.status === 'checked_in' && !originalAppointment.checked_in_time) {
           updatedAppointment.checked_in_time = new Date().toISOString();
       }
       
-      // --- BILLING LOGIC ---
       if (updatedAppointment.status === 'completed' && !updatedAppointment.invoice_id) {
           const service = allServices.find(s => s.id === updatedAppointment!.service_id);
           if (service) {
@@ -182,12 +187,28 @@ export const useMockApi = () => {
               updatedAppointment.invoice_id = newInvoice.id;
           }
       }
+
+      if (updatedAppointment.status === 'completed' && updatedAppointment.prescription) {
+          const newInventory = [...inventory];
+          let updated = false;
+          updatedAppointment.prescription.forEach(item => {
+              const inventoryItem = newInventory.find(i => i.name.toLowerCase() === item.medicine.toLowerCase());
+              if(inventoryItem) {
+                  inventoryItem.stock -= 1; // Assuming 1 unit per prescription
+                  updated = true;
+              }
+          });
+          if(updated) {
+            setInventory(newInventory);
+            mockInventory = newInventory;
+          }
+      }
       
       newAppointments[appointmentIndex] = updatedAppointment;
       setAppointments(newAppointments);
       mockAppointments = newAppointments;
       return updatedAppointment;
-  }, [appointmentState, invoices, allServices]);
+  }, [appointmentState, invoices, allServices, inventory]);
   
   const createFollowup = useCallback(async (followupData: Omit<Followup, 'id' | 'patient'> & { patient_id: number }): Promise<Followup> => {
       await new Promise(res => setTimeout(res, 300));
@@ -309,7 +330,7 @@ export const useMockApi = () => {
   const sendMessage = useCallback(async (patientId: number, message: string): Promise<boolean> => {
       console.log(`Sending message to patient ${patientId}: "${message}"`);
       await new Promise(res => setTimeout(res, 500));
-      return true; // Simulate successful send
+      return true;
   }, []);
 
   const sendAppointmentReminder = useCallback(async (appointmentId: number): Promise<Appointment> => {
@@ -329,10 +350,59 @@ export const useMockApi = () => {
       return patients;
   }, [patients]);
   
+  const getInvoicesForDateRange = useCallback(async (startDate: string, endDate: string): Promise<Invoice[]> => {
+      await new Promise(res => setTimeout(res, 500));
+      return invoices.filter(i => {
+          const invDate = new Date(i.invoice_date);
+          return i.status === 'paid' && invDate >= new Date(startDate) && invDate <= new Date(endDate);
+      });
+  }, [invoices]);
+  
   const getAllInvoices = useCallback(async (): Promise<Invoice[]> => {
       await new Promise(res => setTimeout(res, 300));
       return invoices;
   }, [invoices]);
 
-  return { users: allUsers, branches, services: allServices, patients, getFollowupsForDate, getAppointmentsForDate, getFollowupCounts, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getInvoiceForAppointment, recordPayment, login, getDashboardStats, updateService, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getAllPatients, getAllInvoices };
+  const getLatestNoteForPatient = useCallback(async (patientId: number): Promise<string | null> => {
+      await new Promise(res => setTimeout(res, 400));
+      const patientAppointments = appointmentState
+          .filter(a => a.patient_id === patientId && a.status === 'completed' && a.notes)
+          .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+      return patientAppointments[0]?.notes || null;
+  }, [appointmentState]);
+  
+  const runAutomatedReminders = useCallback(async (): Promise<number> => {
+      await new Promise(res => setTimeout(res, 1000));
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      
+      let remindersSent = 0;
+      const newAppointments = appointmentState.map(a => {
+          if (a.start_time.startsWith(tomorrowStr) && !a.reminder_sent) {
+              console.log(`Sending reminder for appointment ${a.id} to ${a.patient.name}`);
+              remindersSent++;
+              return { ...a, reminder_sent: true };
+          }
+          return a;
+      });
+      setAppointments(newAppointments);
+      mockAppointments = newAppointments;
+      return remindersSent;
+  }, [appointmentState]);
+
+  const getInventory = useCallback(async (): Promise<InventoryItem[]> => {
+      await new Promise(res => setTimeout(res, 200));
+      return inventory;
+  }, [inventory]);
+
+  const updateInventoryItem = useCallback(async (item: InventoryItem): Promise<InventoryItem> => {
+      await new Promise(res => setTimeout(res, 200));
+      const newInventory = inventory.map(i => i.id === item.id ? item : i);
+      setInventory(newInventory);
+      mockInventory = newInventory;
+      return item;
+  }, [inventory]);
+
+  return { users: allUsers, branches, services: allServices, patients, inventory, getFollowupsForDate, getAppointmentsForDate, getFollowupCounts, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getInvoiceForAppointment, recordPayment, login, getDashboardStats, updateService, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getAllPatients, getAllInvoices, getInvoicesForDateRange, getLatestNoteForPatient, runAutomatedReminders, getInventory, updateInventoryItem };
 };

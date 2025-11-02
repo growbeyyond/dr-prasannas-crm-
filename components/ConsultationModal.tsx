@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Appointment, Patient, Vitals, PrescriptionItem, ClinicalNoteTemplate, User } from '../types';
-import { SpinnerIcon, HeartPulseIcon, FileTextIcon, PillIcon, TrashIcon, PrintIcon, TemplateIcon } from './icons';
+import { SpinnerIcon, HeartPulseIcon, FileTextIcon, PillIcon, TrashIcon, PrintIcon, TemplateIcon, SparklesIcon } from './icons';
 
 interface ConsultationModalProps {
   appointment: Appointment;
   onClose: () => void;
   onComplete: (appointmentId: number, data: { vitals: Vitals; notes: string; prescription: PrescriptionItem[] }) => Promise<void>;
   onShowPatientHistory: (patient: Patient) => void;
-  // FIX: Added getNoteTemplatesApi to props to allow fetching clinical note templates.
   getNoteTemplatesApi: (doctorId: number) => Promise<ClinicalNoteTemplate[]>;
-  // FIX: Added currentUser to props to get the doctor's ID for fetching templates.
   currentUser: User;
+  getLatestNoteForPatientApi: (patientId: number) => Promise<string | null>;
 }
+
+// Gemini AI Simulation
+const summarizeNotes = async (notes: string): Promise<string> => {
+    // In a real app, this would be an API call to Gemini.
+    await new Promise(res => setTimeout(res, 800));
+    if (!notes) return "No previous notes available for summary.";
+    // Simple summary logic for demo
+    const sentences = notes.split('.').filter(s => s.trim().length > 0);
+    return `Summary of last visit: ${sentences[0]}. Key points include patient response to treatment and recommendations for follow-up.`;
+};
 
 export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   appointment,
@@ -20,6 +29,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   onShowPatientHistory,
   getNoteTemplatesApi,
   currentUser,
+  getLatestNoteForPatientApi,
 }) => {
   const [vitals, setVitals] = useState<Vitals>(appointment.vitals || { bp: '', temp: 0, weight: 0 });
   const [notes, setNotes] = useState(appointment.notes || '');
@@ -28,8 +38,32 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [templates, setTemplates] = useState<ClinicalNoteTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   
   const isCompleted = appointment.status === 'completed';
+
+  useEffect(() => {
+    const generateSummary = async () => {
+        if (!isCompleted) {
+            setIsLoadingSummary(true);
+            try {
+                const latestNotes = await getLatestNoteForPatientApi(appointment.patient.id);
+                if (latestNotes) {
+                    const aiSummary = await summarizeNotes(latestNotes);
+                    setSummary(aiSummary);
+                } else {
+                    setSummary('No previous consultation notes found for this patient.');
+                }
+            } catch (e) {
+                setSummary('Could not generate AI summary.');
+            } finally {
+                setIsLoadingSummary(false);
+            }
+        }
+    };
+    generateSummary();
+  }, [appointment.patient.id, getLatestNoteForPatientApi, isCompleted]);
 
   useEffect(() => {
       if (!isCompleted && currentUser.role === 'doctor') {
@@ -68,10 +102,10 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   const getAge = (dob: string | undefined): number | 'N/A' => dob ? new Date().getFullYear() - new Date(dob).getFullYear() : 'N/A';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4" onClick={onClose}>
-      <div className="bg-white w-full max-w-4xl rounded-lg shadow-xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4 modal-backdrop" onClick={onClose}>
+      <div className="bg-white w-full max-w-4xl rounded-lg shadow-xl flex flex-col max-h-[90vh] printable-area" onClick={e => e.stopPropagation()}>
         <form onSubmit={handleSubmit} className="flex flex-col h-full">
-          <div className="p-6 border-b">
+          <div className="p-6 border-b no-print">
             <h2 className="text-2xl font-bold text-slate-800">{isCompleted ? 'Consultation Record' : 'Start Consultation'}</h2>
             <div className="text-slate-600 mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span><strong>Patient:</strong> {appointment.patient.name} ({getAge(appointment.patient.dob)} yrs)</span>
@@ -97,7 +131,6 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
             <div>
                 <div className="flex justify-between items-center mb-3">
                     <h3 className="text-lg font-semibold text-slate-700 flex items-center gap-2"><FileTextIcon /> Clinical Notes</h3>
-                    {/* FIX: Added UI to allow doctors to use note templates. */}
                     {!isCompleted && templates.length > 0 && (
                         <div className="relative">
                             <button type="button" onClick={() => setShowTemplates(prev => !prev)} className="text-sm text-blue-600 font-semibold flex items-center gap-1 hover:underline">
@@ -115,6 +148,12 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                         </div>
                     )}
                 </div>
+                {!isCompleted && (
+                    <div className="p-3 mb-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                        <div className="flex items-center gap-2 font-semibold text-blue-800 mb-1"><SparklesIcon /> AI Summary of Last Visit</div>
+                        {isLoadingSummary ? <div className="flex items-center gap-2 text-slate-500"><SpinnerIcon className="w-4 h-4"/> Generating...</div> : <p className="text-slate-700">{summary}</p>}
+                    </div>
+                )}
                 <textarea name="notes" placeholder="Enter symptoms, diagnosis..." value={notes} onChange={e => setNotes(e.target.value)} disabled={isCompleted} className="w-full p-2 border border-slate-300 rounded-md h-32 resize-y disabled:bg-slate-100"></textarea>
             </div>
 
@@ -143,7 +182,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
             </div>
           </div>
 
-          <div className="px-6 py-4 bg-slate-50 flex justify-between items-center gap-3 rounded-b-lg">
+          <div className="px-6 py-4 bg-slate-50 flex justify-between items-center gap-3 rounded-b-lg no-print">
             <div>
                  {isCompleted && prescription.length > 0 && <button type="button" onClick={() => window.print()} className="px-3 py-1.5 border rounded-md text-sm bg-white hover:bg-slate-50 flex items-center gap-2"><PrintIcon/> Print Prescription</button>}
             </div>
