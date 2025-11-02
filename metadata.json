@@ -1,0 +1,5 @@
+{
+  "name": "Dr. Prasanna's CRM",
+  "description": "An advanced, production-ready Appointment and Follow-up CRM for Dr. Prasanna, featuring a daily follow-up popup on calendar date clicks, branch management, and role-based access for the doctor and receptionists.",
+  "requestFramePermissions": []
+}
