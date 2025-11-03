@@ -11,6 +11,9 @@ import { useMockApi } from './hooks/useMockApi';
 import { User, Followup, Patient, HistoryItem, Appointment, Vitals, PrescriptionItem, PatientDocument, Toast, AgendaItem, AppointmentStatus, CalendarBlocker } from './types';
 import { LoginScreen } from './components/LoginScreen';
 import { Dashboard } from './components/Dashboard';
+import { ReceptionistDashboard } from './components/ReceptionistDashboard';
+import { DoctorDashboard } from './components/DoctorDashboard';
+import { AdminDashboard } from './components/AdminDashboard';
 import { Settings } from './components/Settings';
 import { PatientHistoryModal } from './components/PatientHistoryModal';
 import { WaitingRoom } from './components/WaitingRoom';
@@ -22,7 +25,7 @@ import { CalendarView } from './components/CalendarView';
 import { PatientProfile } from './components/PatientProfile';
 
 
-type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room' | 'inventory' | 'patient_profile';
+type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room' | 'patient_profile';
 
 export default function App() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -155,6 +158,18 @@ export default function App() {
     handleShowPatientProfile(patient);
   }, [getPatientHistory, addToast]);
 
+  const [adminStats, setAdminStats] = useState({ appointmentsToday: 0, noShows: 0, revenueToday: 0 });
+
+  useEffect(() => {
+    if (currentUser?.role === 'admin' && view === 'dashboard') {
+      getDashboardStats().then(stats => setAdminStats({
+        appointmentsToday: stats.todayAppointments,
+        noShows: 0, // Mocked for now
+        revenueToday: stats.todayRevenue
+      }));
+    }
+  }, [currentUser, view, getDashboardStats]);
+
   const closePatientHistoryModal = () => setPatientHistoryModalState({ isOpen: false, patient: null, history: [], documents: [], loading: false });
   
   const handleStartConsultation = (appointment: Appointment) => setConsultationModalState({ isOpen: true, appointment });
@@ -231,7 +246,23 @@ export default function App() {
       />
       <main className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
-            {view === 'dashboard' && <Dashboard getStatsApi={getDashboardStats} runAutomatedRemindersApi={runAutomatedReminders} addToast={addToast} />}
+            {view === 'dashboard' && currentUser.role === 'receptionist' && (
+              <ReceptionistDashboard
+                todaysAppointments={agendaItems.filter(item => item.itemType === 'appointment') as Appointment[]}
+                onNewPatientClick={() => setIsIntakeModalOpen(true)}
+                onBookAppointmentClick={() => setIsIntakeModalOpen(true)}
+                onPaymentsClick={() => { /* TODO */ }}
+              />
+            )}
+            {view === 'dashboard' && currentUser.role === 'doctor' && (
+              <DoctorDashboard
+                todaysAppointments={agendaItems.filter(item => item.itemType === 'appointment') as Appointment[]}
+                onAppointmentClick={handleStartConsultation}
+              />
+            )}
+            {view === 'dashboard' && currentUser.role === 'admin' && (
+              <AdminDashboard stats={adminStats} />
+            )}
             {view === 'agenda' && (
                 <TodaysAgenda 
                     agendaItems={agendaItems}

@@ -271,13 +271,14 @@ export const useMockApi = () => {
     const todayInvoices = invoices.filter(i => i.invoice_date === todayStr && i.status === 'paid');
     const todayRevenue = todayInvoices.reduce((sum, inv) => sum + inv.amount, 0);
     const todayAppointments = appointmentState.filter(a => a.start_time.startsWith(todayStr)).length;
+    const noShows = appointmentState.filter(a => a.start_time.startsWith(todayStr) && a.status === 'canceled').length;
     const pendingFollowups = followups.filter(f => f.scheduled_date === todayStr && f.status === 'pending').length;
     const branchPerformance = branches.map(branch => {
         const branchApptIds = appointmentState.filter(a => a.branch_id === branch.id && a.start_time.startsWith(todayStr)).map(a => a.id);
         const branchRevenue = invoices.filter(i => branchApptIds.includes(i.appointment_id) && i.status === 'paid' && i.invoice_date === todayStr).reduce((sum, inv) => sum + inv.amount, 0);
         return { branchName: branch.name, revenue: branchRevenue, appointments: branchApptIds.length };
     });
-    return { todayRevenue, todayAppointments, pendingFollowups, branchPerformance };
+    return { todayRevenue, todayAppointments, pendingFollowups, branchPerformance, noShows };
   }, [invoices, appointmentState, followups]);
   
   const updateService = useCallback(async (service: Service): Promise<Service> => {
