@@ -404,5 +404,21 @@ export const useMockApi = () => {
       return item;
   }, [inventory]);
 
-  return { users: allUsers, branches, services: allServices, patients, inventory, getFollowupsForDate, getAppointmentsForDate, getFollowupCounts, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getInvoiceForAppointment, recordPayment, login, getDashboardStats, updateService, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getAllPatients, getAllInvoices, getInvoicesForDateRange, getLatestNoteForPatient, runAutomatedReminders, getInventory, updateInventoryItem };
+  const addInventoryItem = useCallback(async (item: Omit<InventoryItem, 'id'>): Promise<InventoryItem> => {
+    await new Promise(res => setTimeout(res, 200));
+    const newItem = { ...item, id: Math.max(0, ...inventory.map(i => i.id)) + 1 };
+    const newInventory = [...inventory, newItem];
+    setInventory(newInventory);
+    mockInventory = newInventory;
+    return newItem;
+  }, [inventory]);
+
+  const deleteInventoryItem = useCallback(async (itemId: number): Promise<void> => {
+    await new Promise(res => setTimeout(res, 200));
+    const newInventory = inventory.filter(i => i.id !== itemId);
+    setInventory(newInventory);
+    mockInventory = newInventory;
+  }, [inventory]);
+
+  return { users: allUsers, branches, services: allServices, patients, inventory, getFollowupsForDate, getAppointmentsForDate, getFollowupCounts, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getInvoiceForAppointment, recordPayment, login, getDashboardStats, updateService, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getAllPatients, getAllInvoices, getInvoicesForDateRange, getLatestNoteForPatient, runAutomatedReminders, getInventory, updateInventoryItem, addInventoryItem, deleteInventoryItem };
 };

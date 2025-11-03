@@ -141,10 +141,3 @@ export interface Toast {
     message: string;
     type: 'success' | 'info' | 'error';
 }
-
-export interface InventoryItem {
-    id: number;
-    name: string;
-    stock: number;
-    low_stock_threshold: number;
-}

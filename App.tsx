@@ -9,6 +9,7 @@ import { BillingModal } from './components/BillingModal';
 import { useMockApi } from './hooks/useMockApi';
 // FIX: Import CalendarBlocker type
 import { User, Followup, Patient, HistoryItem, Appointment, Vitals, PrescriptionItem, PatientDocument, Toast, AgendaItem, AppointmentStatus, CalendarBlocker } from './types';
+import { InventoryItem } from './types/inventory';
 import { LoginScreen } from './components/LoginScreen';
 import { Dashboard } from './components/Dashboard';
 import { Settings } from './components/Settings';
@@ -19,9 +20,11 @@ import { BlockTimeModal } from './components/BlockTimeModal';
 import { ToastContainer } from './components/Toast';
 import { CreateAppointmentModal } from './components/CreateAppointmentModal';
 import { CalendarView } from './components/CalendarView';
+import { Inventory } from './components/Inventory';
+import { InventoryModal } from './components/InventoryModal';
 
 
-type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room';
+type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room' | 'inventory';
 
 export default function App() {
   const api = useMockApi();
@@ -49,6 +52,11 @@ export default function App() {
   const [communicationModalState, setCommunicationModalState] = useState<{isOpen: boolean; appointment: Appointment | null}>({ isOpen: false, appointment: null });
 
   const [isBlockTimeModalOpen, setIsBlockTimeModalOpen] = useState(false);
+
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState<InventoryItem | undefined>(undefined);
+  const [isInventoryLoading, setIsInventoryLoading] = useState(true);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -98,6 +106,13 @@ export default function App() {
       }
   }, [view, currentUser, fetchAgendaAndBlockers]);
 
+  useEffect(() => {
+    if (currentUser && view === 'inventory') {
+      setIsInventoryLoading(true);
+      api.getInventory().then(setInventory).finally(() => setIsInventoryLoading(false));
+    }
+  }, [view, currentUser, api]);
+
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -141,6 +156,33 @@ export default function App() {
     } catch (err) {
       console.error(err);
       addToast('Failed to create appointment.', 'error');
+    }
+  };
+
+  const handleSaveInventoryItem = async (item: Omit<InventoryItem, 'id'>) => {
+    try {
+      if (itemToEdit) {
+        await api.updateInventoryItem({ ...item, id: itemToEdit.id });
+        addToast('Item updated successfully.', 'success');
+      } else {
+        await api.addInventoryItem(item);
+        addToast('Item added successfully.', 'success');
+      }
+      setInventory(await api.getInventory());
+      setIsInventoryModalOpen(false);
+      setItemToEdit(undefined);
+    } catch (err) {
+      addToast('Failed to save item.', 'error');
+    }
+  };
+
+  const handleDeleteInventoryItem = async (itemId: number) => {
+    try {
+      await api.deleteInventoryItem(itemId);
+      addToast('Item deleted successfully.', 'success');
+      setInventory(await api.getInventory());
+    } catch (err) {
+      addToast('Failed to delete item.', 'error');
     }
   };
 
@@ -253,6 +295,21 @@ export default function App() {
                     waitingPatients={agendaItems.filter(item => item.itemType === 'appointment' && item.status === 'checked_in') as Appointment[]}
                 />
             )}
+            {view === 'inventory' && (
+              <Inventory
+                inventory={inventory}
+                onAddItem={() => {
+                  setItemToEdit(undefined);
+                  setIsInventoryModalOpen(true);
+                }}
+                onEditItem={(item) => {
+                  setItemToEdit(item);
+                  setIsInventoryModalOpen(true);
+                }}
+                onDeleteItem={handleDeleteInventoryItem}
+                loading={isInventoryLoading}
+              />
+            )}
         </div>
       </main>
 
@@ -277,6 +334,17 @@ export default function App() {
       {billingModalState.isOpen && billingModalState.appointment && <BillingModal appointment={billingModalState.appointment} onClose={() => setBillingModalState({ isOpen: false, appointment: null })} getInvoiceApi={api.getInvoiceForAppointment} recordPaymentApi={api.recordPayment} />}
       {communicationModalState.isOpen && communicationModalState.appointment && <CommunicationModal appointment={communicationModalState.appointment} onClose={() => setCommunicationModalState({ isOpen: false, appointment: null })} sendMessageApi={sendMessage} />}
       {isBlockTimeModalOpen && <BlockTimeModal onClose={() => setIsBlockTimeModalOpen(false)} onCreateBlocker={handleCreateBlocker} currentUser={currentUser} />}
+      {isInventoryModalOpen && (
+        <InventoryModal
+          isOpen={isInventoryModalOpen}
+          onClose={() => {
+            setIsInventoryModalOpen(false);
+            setItemToEdit(undefined);
+          }}
+          onSave={handleSaveInventoryItem}
+          itemToEdit={itemToEdit}
+        />
+      )}
     </div>
   );
 }
