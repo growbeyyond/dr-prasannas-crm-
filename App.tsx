@@ -9,7 +9,6 @@ import { BillingModal } from './components/BillingModal';
 import { useMockApi } from './hooks/useMockApi';
 // FIX: Import CalendarBlocker type
 import { User, Followup, Patient, HistoryItem, Appointment, Vitals, PrescriptionItem, PatientDocument, Toast, AgendaItem, AppointmentStatus, CalendarBlocker } from './types';
-import { InventoryItem } from './types/inventory';
 import { LoginScreen } from './components/LoginScreen';
 import { Dashboard } from './components/Dashboard';
 import { Settings } from './components/Settings';
@@ -23,7 +22,7 @@ import { CalendarView } from './components/CalendarView';
 import { PatientProfile } from './components/PatientProfile';
 
 
-type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room' | 'patient_profile';
+type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room' | 'inventory' | 'patient_profile';
 
 export default function App() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);

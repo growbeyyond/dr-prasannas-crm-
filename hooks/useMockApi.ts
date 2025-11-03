@@ -185,7 +185,7 @@ export const useMockApi = () => {
       setAppointments(newAppointments);
       mockAppointments = newAppointments;
       return updatedAppointment;
-  }, [appointmentState, invoices, allServices, inventory]);
+  }, [appointmentState, invoices, allServices]);
   
   const createFollowup = useCallback(async (followupData: Omit<Followup, 'id' | 'patient'> & { patient_id: number }): Promise<Followup> => {
       await new Promise(res => setTimeout(res, 300));

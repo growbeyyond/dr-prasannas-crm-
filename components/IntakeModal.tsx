@@ -5,7 +5,7 @@ import { SpinnerIcon, SparklesIcon } from './icons';
 interface IntakeModalProps {
   onClose: () => void;
   searchPatientsApi: (term: string) => Promise<Patient[]>;
-  createPatientApi: (data: Omit<Patient, 'id'>) => Promise<Patient>;
+  createPatientApi: (data: Omit<Patient, 'id'> & { photoFile?: File | null, signatureData?: string | null }) => Promise<Patient>;
   createFollowupApi: (data: Omit<Followup, 'id' | 'patient'> & { patient_id: number }) => Promise<Followup>;
   createAppointmentApi: (data: Omit<Appointment, 'id' | 'end_time' | 'patient' | 'service_name' | 'reminder_sent'>) => Promise<void>;
   services: Service[];
