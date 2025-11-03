@@ -9,8 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/react-signature-canvas": "^1.0.7",
+    "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react": "^19.2.0"
+    "react-signature-canvas": "^1.1.0-alpha.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

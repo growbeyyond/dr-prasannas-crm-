@@ -20,13 +20,13 @@ import { BlockTimeModal } from './components/BlockTimeModal';
 import { ToastContainer } from './components/Toast';
 import { CreateAppointmentModal } from './components/CreateAppointmentModal';
 import { CalendarView } from './components/CalendarView';
-import { Inventory } from './components/Inventory';
-import { InventoryModal } from './components/InventoryModal';
+import { PatientProfile } from './components/PatientProfile';
 
 
-type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room' | 'inventory';
+type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room' | 'patient_profile';
 
 export default function App() {
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const api = useMockApi();
   const { users, branches, services, getFollowupsForDate, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getAppointmentsForDate, login, getDashboardStats, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getLatestNoteForPatient, runAutomatedReminders } = api;
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -52,11 +52,6 @@ export default function App() {
   const [communicationModalState, setCommunicationModalState] = useState<{isOpen: boolean; appointment: Appointment | null}>({ isOpen: false, appointment: null });
 
   const [isBlockTimeModalOpen, setIsBlockTimeModalOpen] = useState(false);
-
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
-  const [itemToEdit, setItemToEdit] = useState<InventoryItem | undefined>(undefined);
-  const [isInventoryLoading, setIsInventoryLoading] = useState(true);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -106,13 +101,6 @@ export default function App() {
       }
   }, [view, currentUser, fetchAgendaAndBlockers]);
 
-  useEffect(() => {
-    if (currentUser && view === 'inventory') {
-      setIsInventoryLoading(true);
-      api.getInventory().then(setInventory).finally(() => setIsInventoryLoading(false));
-    }
-  }, [view, currentUser, api]);
-
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -159,43 +147,13 @@ export default function App() {
     }
   };
 
-  const handleSaveInventoryItem = async (item: Omit<InventoryItem, 'id'>) => {
-    try {
-      if (itemToEdit) {
-        await api.updateInventoryItem({ ...item, id: itemToEdit.id });
-        addToast('Item updated successfully.', 'success');
-      } else {
-        await api.addInventoryItem(item);
-        addToast('Item added successfully.', 'success');
-      }
-      setInventory(await api.getInventory());
-      setIsInventoryModalOpen(false);
-      setItemToEdit(undefined);
-    } catch (err) {
-      addToast('Failed to save item.', 'error');
-    }
-  };
-
-  const handleDeleteInventoryItem = async (itemId: number) => {
-    try {
-      await api.deleteInventoryItem(itemId);
-      addToast('Item deleted successfully.', 'success');
-      setInventory(await api.getInventory());
-    } catch (err) {
-      addToast('Failed to delete item.', 'error');
-    }
+  const handleShowPatientProfile = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setView('patient_profile');
   };
 
   const handleShowPatientHistory = useCallback(async (patient: Patient) => {
-    setPatientHistoryModalState({ isOpen: true, patient, history: [], documents: [], loading: true });
-    try {
-        const { history, documents } = await getPatientHistory(patient.id);
-        setPatientHistoryModalState({ isOpen: true, patient, history, documents, loading: false });
-    } catch (err) {
-        console.error(err);
-        addToast('Failed to load patient history.', 'error');
-        setPatientHistoryModalState({ isOpen: false, patient: null, history: [], documents: [], loading: false });
-    }
+    handleShowPatientProfile(patient);
   }, [getPatientHistory, addToast]);
 
   const closePatientHistoryModal = () => setPatientHistoryModalState({ isOpen: false, patient: null, history: [], documents: [], loading: false });
@@ -295,19 +253,10 @@ export default function App() {
                     waitingPatients={agendaItems.filter(item => item.itemType === 'appointment' && item.status === 'checked_in') as Appointment[]}
                 />
             )}
-            {view === 'inventory' && (
-              <Inventory
-                inventory={inventory}
-                onAddItem={() => {
-                  setItemToEdit(undefined);
-                  setIsInventoryModalOpen(true);
-                }}
-                onEditItem={(item) => {
-                  setItemToEdit(item);
-                  setIsInventoryModalOpen(true);
-                }}
-                onDeleteItem={handleDeleteInventoryItem}
-                loading={isInventoryLoading}
+            {view === 'patient_profile' && selectedPatient && (
+              <PatientProfile
+                patient={selectedPatient}
+                onClose={() => setView('dashboard')}
               />
             )}
         </div>
@@ -317,7 +266,12 @@ export default function App() {
         <IntakeModal
           onClose={() => setIsIntakeModalOpen(false)}
           searchPatientsApi={searchPatients}
-          createPatientApi={createPatient}
+          createPatientApi={async (patientData) => {
+            const newPatient = await createPatient(patientData);
+            handleShowPatientProfile(newPatient);
+            setIsIntakeModalOpen(false);
+            return newPatient;
+          }}
           createFollowupApi={createFollowup}
           createAppointmentApi={handleCreateAppointment}
           services={services}
@@ -334,17 +288,6 @@ export default function App() {
       {billingModalState.isOpen && billingModalState.appointment && <BillingModal appointment={billingModalState.appointment} onClose={() => setBillingModalState({ isOpen: false, appointment: null })} getInvoiceApi={api.getInvoiceForAppointment} recordPaymentApi={api.recordPayment} />}
       {communicationModalState.isOpen && communicationModalState.appointment && <CommunicationModal appointment={communicationModalState.appointment} onClose={() => setCommunicationModalState({ isOpen: false, appointment: null })} sendMessageApi={sendMessage} />}
       {isBlockTimeModalOpen && <BlockTimeModal onClose={() => setIsBlockTimeModalOpen(false)} onCreateBlocker={handleCreateBlocker} currentUser={currentUser} />}
-      {isInventoryModalOpen && (
-        <InventoryModal
-          isOpen={isInventoryModalOpen}
-          onClose={() => {
-            setIsInventoryModalOpen(false);
-            setItemToEdit(undefined);
-          }}
-          onSave={handleSaveInventoryItem}
-          itemToEdit={itemToEdit}
-        />
-      )}
     </div>
   );
 }

@@ -137,23 +137,87 @@ const SearchStep = ({ searchTerm, onSearchChange, results, onSelectPatient, onAd
     </div>
 );
 
+import { PhotoUpload } from './PhotoUpload';
+import { SignaturePadModal } from './SignaturePadModal';
+
 const NewPatientStep = ({ onSubmit, onBack, isLoading }: any) => {
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); const formData = new FormData(e.currentTarget); const data = Object.fromEntries(formData.entries()); onSubmit(data); };
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+    const [signatureData, setSignatureData] = useState<string | null>(null);
+
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const data = Object.fromEntries(formData.entries());
+        const patientData = {
+            name: data.name,
+            phone: data.phone,
+            dob: data.dob,
+            gender: data.gender,
+            emergency_contact: {
+                name: data['emergency_contact.name'],
+                phone: data['emergency_contact.phone'],
+                relation: 'N/A' // relation field not in form, so add a default
+            },
+            insurance: {
+                provider: data['insurance.provider'],
+                policy_number: data['insurance.policy_number']
+            },
+            preferred_communication: data.preferred_communication,
+            photoFile: photoFile,
+            signatureData: signatureData
+        };
+        onSubmit(patientData);
+    };
     return (
         <div>
             <h3 className="font-semibold text-lg text-slate-700 mb-4">Add New Patient</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
+                <PhotoUpload onPhotoSelected={setPhotoFile} />
                 <div> <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label> <input name="name" type="text" required className="w-full p-2 border border-slate-300 rounded-md"/> </div>
                 <div> <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label> <input name="phone" type="tel" required className="w-full p-2 border border-slate-300 rounded-md"/> </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div> <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label> <input name="dob" type="date" className="w-full p-2 border border-slate-300 rounded-md"/> </div>
                     <div> <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label> <select name="gender" className="w-full p-2 border border-slate-300 rounded-md"> <option value="Male">Male</option> <option value="Female">Female</option> <option value="Other">Other</option> </select> </div>
                 </div>
+                <h4 className="font-semibold text-md text-slate-700 mt-6 mb-2">Emergency Contact</h4>
+                <div className="grid grid-cols-2 gap-4">
+                    <div> <label className="block text-sm font-medium text-slate-700 mb-1">Contact Name</label> <input name="emergency_contact.name" type="text" className="w-full p-2 border border-slate-300 rounded-md"/> </div>
+                    <div> <label className="block text-sm font-medium text-slate-700 mb-1">Contact Phone</label> <input name="emergency_contact.phone" type="tel" className="w-full p-2 border border-slate-300 rounded-md"/> </div>
+                </div>
+                <h4 className="font-semibold text-md text-slate-700 mt-6 mb-2">Insurance Details</h4>
+                <div className="grid grid-cols-2 gap-4">
+                    <div> <label className="block text-sm font-medium text-slate-700 mb-1">Provider</label> <input name="insurance.provider" type="text" className="w-full p-2 border border-slate-300 rounded-md"/> </div>
+                    <div> <label className="block text-sm font-medium text-slate-700 mb-1">Policy Number</label> <input name="insurance.policy_number" type="text" className="w-full p-2 border border-slate-300 rounded-md"/> </div>
+                </div>
+                <h4 className="font-semibold text-md text-slate-700 mt-6 mb-2">Communication</h4>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Preferred Communication</label>
+                    <select name="preferred_communication" className="w-full p-2 border border-slate-300 rounded-md">
+                        <option value="sms">SMS</option>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="email">Email</option>
+                    </select>
+                </div>
+                <div>
+                    <button type="button" onClick={() => setIsSignatureModalOpen(true)} className="w-full text-center p-3 bg-slate-100 rounded-md text-blue-600 font-semibold hover:bg-slate-200">
+                        {signatureData ? 'Consent Signed' : 'Sign Consent'}
+                    </button>
+                </div>
                 <div className="flex justify-end gap-3 pt-4">
                     <button type="button" onClick={onBack} className="px-4 py-2 border rounded-md">Back to Search</button>
                     <button type="submit" disabled={isLoading} className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2"> {isLoading && <SpinnerIcon className="w-4 h-4"/>} Save and Continue </button>
                 </div>
             </form>
+            {isSignatureModalOpen && (
+                <SignaturePadModal
+                    onClose={() => setIsSignatureModalOpen(false)}
+                    onSave={(signature) => {
+                        setSignatureData(signature);
+                        setIsSignatureModalOpen(false);
+                    }}
+                />
+            )}
         </div>
     );
 };

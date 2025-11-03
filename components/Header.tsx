@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Branch, Patient } from '../types';
 import { UserPlusIcon, CogIcon, LogoutIcon, ChevronDownIcon, ChartBarIcon, ClockIcon, SearchIcon, SpinnerIcon } from './icons';
-import { InventoryIcon } from './InventoryIcon';
 
 interface HeaderProps {
   currentUser: User;
@@ -12,7 +11,7 @@ interface HeaderProps {
   onNewPatientClick: () => void;
   onBlockTimeClick: () => void;
   currentView: string;
-  setView: (view: 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room' | 'inventory') => void;
+  setView: (view: 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room') => void;
   searchPatientsApi: (term: string) => Promise<Patient[]>;
   onShowPatientHistory: (patient: Patient) => void;
 }
@@ -117,10 +116,6 @@ export const Header: React.FC<HeaderProps> = ({
             <NavButton isActive={currentView === 'agenda'} onClick={() => setView('agenda')}>Today's Agenda</NavButton>
             <NavButton isActive={currentView === 'waiting_room'} onClick={() => setView('waiting_room')}>Waiting Room</NavButton>
             <NavButton isActive={currentView === 'calendar'} onClick={() => setView('calendar')}>Follow-ups</NavButton>
-            <NavButton isActive={currentView === 'inventory'} onClick={() => setView('inventory')}>
-              <InventoryIcon className="w-5 h-5 mr-2" />
-              Inventory
-            </NavButton>
         </div>
       </div>
       <div className="flex flex-col sm:flex-row items-center gap-4">

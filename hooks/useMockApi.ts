@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { User, Branch, Patient, Followup, Service, Appointment, HistoryItem, Vitals, Invoice, PrescriptionItem, DashboardStats, ClinicalNoteTemplate, PatientDocument, CalendarBlocker, InventoryItem } from '../types';
+import { User, Branch, Patient, Followup, Service, Appointment, HistoryItem, Vitals, Invoice, PrescriptionItem, DashboardStats, ClinicalNoteTemplate, PatientDocument, CalendarBlocker } from '../types';
 
 // --- MOCK DATABASE ---
 
@@ -52,12 +52,6 @@ let mockInvoices: Invoice[] = [
         patient_name: 'Sowmya',
         invoice_date: new Date().toISOString().split('T')[0]
     }
-];
-
-let mockInventory: InventoryItem[] = [
-    { id: 1, name: 'Paracetamol 500mg', stock: 180, low_stock_threshold: 50 },
-    { id: 2, name: 'Amoxicillin 250mg', stock: 45, low_stock_threshold: 50 },
-    { id: 3, name: 'Aspirin 75mg', stock: 250, low_stock_threshold: 100 },
 ];
 
 const enrichAppointments = (appointments: Omit<Appointment, 'patient' | 'service_name'>[]): Appointment[] => {
@@ -113,7 +107,6 @@ export const useMockApi = () => {
   const [allServices, setAllServices] = useState<Service[]>(services);
   const [noteTemplates, setNoteTemplates] = useState<ClinicalNoteTemplate[]>(mockNoteTemplates);
   const [blockers, setBlockers] = useState<CalendarBlocker[]>(mockBlockers);
-  const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
 
   const login = useCallback(async (email: string, pass: string): Promise<User> => {
     await new Promise(res => setTimeout(res, 500));
@@ -187,22 +180,6 @@ export const useMockApi = () => {
               updatedAppointment.invoice_id = newInvoice.id;
           }
       }
-
-      if (updatedAppointment.status === 'completed' && updatedAppointment.prescription) {
-          const newInventory = [...inventory];
-          let updated = false;
-          updatedAppointment.prescription.forEach(item => {
-              const inventoryItem = newInventory.find(i => i.name.toLowerCase() === item.medicine.toLowerCase());
-              if(inventoryItem) {
-                  inventoryItem.stock -= 1; // Assuming 1 unit per prescription
-                  updated = true;
-              }
-          });
-          if(updated) {
-            setInventory(newInventory);
-            mockInventory = newInventory;
-          }
-      }
       
       newAppointments[appointmentIndex] = updatedAppointment;
       setAppointments(newAppointments);
@@ -251,9 +228,22 @@ export const useMockApi = () => {
     return patients.filter(p => p.name.toLowerCase().includes(lowerCaseSearchTerm) || p.phone.includes(lowerCaseSearchTerm));
   }, [patients]);
 
-  const createPatient = useCallback(async (patientData: Omit<Patient, 'id'>): Promise<Patient> => {
+  const createPatient = useCallback(async (patientData: Omit<Patient, 'id'> & { photoFile?: File | null, signatureData?: string | null }): Promise<Patient> => {
     await new Promise(res => setTimeout(res, 400));
     const newPatient: Patient = { ...patientData, id: Math.max(0, ...patients.map(p => p.id)) + 1 };
+
+    if (patientData.photoFile) {
+        // Simulate upload and get URL
+        const photoUrl = URL.createObjectURL(patientData.photoFile);
+        newPatient.photo_url = photoUrl;
+        newPatient.photo_thumbnail_url = photoUrl;
+    }
+
+    if (patientData.signatureData) {
+        newPatient.consent_signed = true;
+        newPatient.consent_document_url = patientData.signatureData;
+    }
+
     const newPatients = [...patients, newPatient];
     setPatients(newPatients);
     mockPatients = newPatients;
@@ -391,34 +381,5 @@ export const useMockApi = () => {
       return remindersSent;
   }, [appointmentState]);
 
-  const getInventory = useCallback(async (): Promise<InventoryItem[]> => {
-      await new Promise(res => setTimeout(res, 200));
-      return inventory;
-  }, [inventory]);
-
-  const updateInventoryItem = useCallback(async (item: InventoryItem): Promise<InventoryItem> => {
-      await new Promise(res => setTimeout(res, 200));
-      const newInventory = inventory.map(i => i.id === item.id ? item : i);
-      setInventory(newInventory);
-      mockInventory = newInventory;
-      return item;
-  }, [inventory]);
-
-  const addInventoryItem = useCallback(async (item: Omit<InventoryItem, 'id'>): Promise<InventoryItem> => {
-    await new Promise(res => setTimeout(res, 200));
-    const newItem = { ...item, id: Math.max(0, ...inventory.map(i => i.id)) + 1 };
-    const newInventory = [...inventory, newItem];
-    setInventory(newInventory);
-    mockInventory = newInventory;
-    return newItem;
-  }, [inventory]);
-
-  const deleteInventoryItem = useCallback(async (itemId: number): Promise<void> => {
-    await new Promise(res => setTimeout(res, 200));
-    const newInventory = inventory.filter(i => i.id !== itemId);
-    setInventory(newInventory);
-    mockInventory = newInventory;
-  }, [inventory]);
-
-  return { users: allUsers, branches, services: allServices, patients, inventory, getFollowupsForDate, getAppointmentsForDate, getFollowupCounts, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getInvoiceForAppointment, recordPayment, login, getDashboardStats, updateService, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getAllPatients, getAllInvoices, getInvoicesForDateRange, getLatestNoteForPatient, runAutomatedReminders, getInventory, updateInventoryItem, addInventoryItem, deleteInventoryItem };
+  return { users: allUsers, branches, services: allServices, patients, getFollowupsForDate, getAppointmentsForDate, getFollowupCounts, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getInvoiceForAppointment, recordPayment, login, getDashboardStats, updateService, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getAllPatients, getAllInvoices, getInvoicesForDateRange, getLatestNoteForPatient, runAutomatedReminders };
 };

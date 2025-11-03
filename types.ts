@@ -39,6 +39,20 @@ export interface Patient {
   dob?: string;
   gender?: string;
   documents?: PatientDocument[];
+  emergency_contact?: {
+    name: string;
+    phone: string;
+    relation: string;
+  };
+  insurance?: {
+    provider: string;
+    policy_number: string;
+  };
+  photo_url?: string;
+  photo_thumbnail_url?: string;
+  consent_signed?: boolean;
+  consent_document_url?: string;
+  preferred_communication?: 'sms' | 'whatsapp' | 'email';
 }
 
 export interface Followup {
