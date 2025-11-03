@@ -19,11 +19,13 @@ import { BlockTimeModal } from './components/BlockTimeModal';
 import { ToastContainer } from './components/Toast';
 import { CreateAppointmentModal } from './components/CreateAppointmentModal';
 import { CalendarView } from './components/CalendarView';
+import { PatientProfile } from './components/PatientProfile';
 
 
-type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room';
+type ViewType = 'dashboard' | 'agenda' | 'calendar' | 'settings' | 'waiting_room' | 'inventory' | 'patient_profile';
 
 export default function App() {
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const api = useMockApi();
   const { users, branches, services, getFollowupsForDate, updateFollowup, updateAppointment, createFollowup, createAppointment, getPatientHistory, searchPatients, createPatient, getAppointmentsForDate, login, getDashboardStats, getNoteTemplates, createNoteTemplate, getCalendarBlockers, createCalendarBlocker, sendMessage, sendAppointmentReminder, getLatestNoteForPatient, runAutomatedReminders } = api;
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -144,16 +146,13 @@ export default function App() {
     }
   };
 
+  const handleShowPatientProfile = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setView('patient_profile');
+  };
+
   const handleShowPatientHistory = useCallback(async (patient: Patient) => {
-    setPatientHistoryModalState({ isOpen: true, patient, history: [], documents: [], loading: true });
-    try {
-        const { history, documents } = await getPatientHistory(patient.id);
-        setPatientHistoryModalState({ isOpen: true, patient, history, documents, loading: false });
-    } catch (err) {
-        console.error(err);
-        addToast('Failed to load patient history.', 'error');
-        setPatientHistoryModalState({ isOpen: false, patient: null, history: [], documents: [], loading: false });
-    }
+    handleShowPatientProfile(patient);
   }, [getPatientHistory, addToast]);
 
   const closePatientHistoryModal = () => setPatientHistoryModalState({ isOpen: false, patient: null, history: [], documents: [], loading: false });
@@ -253,6 +252,12 @@ export default function App() {
                     waitingPatients={agendaItems.filter(item => item.itemType === 'appointment' && item.status === 'checked_in') as Appointment[]}
                 />
             )}
+            {view === 'patient_profile' && selectedPatient && (
+              <PatientProfile
+                patient={selectedPatient}
+                onClose={() => setView('dashboard')}
+              />
+            )}
         </div>
       </main>
 
@@ -260,7 +265,12 @@ export default function App() {
         <IntakeModal
           onClose={() => setIsIntakeModalOpen(false)}
           searchPatientsApi={searchPatients}
-          createPatientApi={createPatient}
+          createPatientApi={async (patientData) => {
+            const newPatient = await createPatient(patientData);
+            handleShowPatientProfile(newPatient);
+            setIsIntakeModalOpen(false);
+            return newPatient;
+          }}
           createFollowupApi={createFollowup}
           createAppointmentApi={handleCreateAppointment}
           services={services}
